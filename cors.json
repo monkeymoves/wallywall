@@ -1,0 +1,19 @@
+[
+  {
+    "origin": [
+      "https://wallywall-18303.web.app",
+      "http://localhost:5000"
+    ],
+    "method": [
+      "GET",
+      "HEAD",
+      "PUT",
+      "POST",
+      "DELETE",
+      "OPTIONS"
+
+    ],
+    "responseHeader": ["Content-Type", "x-goog-resumable"],
+    "maxAgeSeconds": 3600
+  }
+]
