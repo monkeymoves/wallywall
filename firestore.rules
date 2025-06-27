@@ -1,11 +1,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Boards collection: only signed-in users can create/read,
+    // and only the document owner can update/delete
     match /boards/{boardId} {
       allow create: if request.auth != null;
       allow read:   if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.owner;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.owner;
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.owner;
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.owner;
     }
+
+    // Problems collection: same rules as Boards
+    match /problems/{problemId} {
+      allow create: if request.auth != null;
+      allow read:   if request.auth != null;
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.owner;
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.owner;
+    }
+
   }
 }

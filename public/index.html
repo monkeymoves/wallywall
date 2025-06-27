@@ -1,38 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WallyWall</title>
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="app.js"></script>
 </head>
-
 <body>
   <h1>WallyWall</h1>
 
+  <!-- Authentication -->
   <section id="auth">
-    <input id="email" type="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
+    <input  id="email"    type="email"    placeholder="Email" />
+    <input  id="password" type="password" placeholder="Password" />
     <button id="signup">Sign Up</button>
     <button id="login">Log In</button>
-    <pre id="status"></pre>
+    <pre   id="status"></pre>
   </section>
 
   <hr />
 
+  <!-- Board Upload -->
   <section id="upload">
     <h2>Upload Board Image</h2>
-    <input id="file" type="file" />
-    <p id="fileStatus"></p>
+    <input id="file" type="file" disabled />
+    <p    id="fileStatus"></p>
   </section>
 
+  <hr />
+
+  <!-- Your Boards List -->
   <section>
     <h2>Your Boards</h2>
     <ul id="boardsList"></ul>
-    <img id="currentBoard" alt="Selected board" style="max-width: 100%; margin-top: 1rem;" />
+  </section>
+
+  <hr />
+
+  <!-- Board + Overlay + Problem Controls -->
+  <section>
+    <h2>Current Board &amp; Problems</h2>
+
+    <!-- board container -->
+    <div id="boardContainer"
+         style="position:relative; width:100%; max-width:600px;">
+      <!-- The actual board image -->
+      <img    id="currentBoard"
+              alt="Selected board"
+              style="width:100%; display:block;" />
+      <!-- Canvas sits on top -->
+      <canvas id="overlayCanvas"
+              style="position:absolute; top:0; left:0;
+                     width:100%; height:100%; display:none;">
+      </canvas>
+    </div>
+
+    <!-- Controls to place and save holds -->
+    <div id="problemControls"
+         style="margin-top:1rem; display:none;">
+      <button id="newProblemBtn">New Problem</button>
+      <select id="problemSelect">
+        <option value="">— Select a problem —</option>
+      </select>
+      <select id="holdType">
+        <option value="start">Start (Green)</option>
+        <option value="hold">Hold  (Yellow)</option>
+        <option value="finish">Finish (White)</option>
+      </select>
+      <input  id="problemName" type="text" placeholder="Problem name" />
+      <input  id="problemDesc" type="text" placeholder="Description" />
+      <button id="saveProblemBtn">Save Problem</button>
+      <p      id="problemStatus"></p>
+    </div>
   </section>
 </body>
-
 </html>
