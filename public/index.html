@@ -14,16 +14,19 @@
     <button id="menuBtn" class="hdr-btn" aria-label="Boards menu">☰</button>
     <span class="hdr-title">WallyWall</span>
 
-    <!-- view-mode controls -->
+    <!-- view-mode: pick or new -->
     <select id="problemSelect" class="hdr-control problem-select">
       <option value="">— Select a problem —</option>
     </select>
     <button id="newProblemBtn" class="hdr-control fab" aria-label="New problem">＋</button>
 
-    <!-- draw-mode controls (hidden until you click +) -->
+    <!-- edit existing -->
+    <button id="editProblemBtn" class="hdr-btn hidden" aria-label="Edit problem">✎</button>
+
+    <!-- draw-mode controls -->
     <div id="drawControls" class="hdr-control draw-toolbar hidden">
-      <button data-type="start" class="hold-btn active">Start</button>
-      <button data-type="hold"  class="hold-btn">Hold</button>
+      <button data-type="start"  class="hold-btn active">Start</button>
+      <button data-type="hold"   class="hold-btn">Hold</button>
       <button data-type="finish" class="hold-btn">Finish</button>
       <button data-type="delete" class="hold-btn">Delete</button>
     </div>
@@ -31,9 +34,19 @@
     <button id="cancelDrawBtn" class="hdr-btn hidden" aria-label="Cancel drawing">✕</button>
   </header>
 
-  <!-- BOARDS SIDEBAR -->
+  <!-- BOARDS SIDEBAR + AUTH PANEL -->
   <aside id="boardsPanel" class="boards-panel">
     <h2>Your Boards</h2>
+
+    <!-- email/password login UI -->
+    <div id="authPanel" class="auth-panel">
+      <h3 id="authStatus"></h3>
+      <input  id="emailInput"    type="email"    placeholder="Email" />
+      <input  id="passwordInput" type="password" placeholder="Password" />
+      <button id="loginBtn">Log in / Sign up</button>
+      <button id="signOutBtn" class="hidden">Sign Out</button>
+    </div>
+
     <input id="file" type="file" />
     <p id="fileStatus"></p>
     <ul id="boardsList"></ul>
@@ -42,16 +55,16 @@
   <!-- BOARD + OVERLAY -->
   <main id="boardMain" class="board-main">
     <div class="board-container">
-      <img id="currentBoard" alt="Selected board layout" />
+      <img    id="currentBoard" alt="Don't be fucking weak" />
       <canvas id="overlayCanvas"></canvas>
     </div>
   </main>
 
-  <!-- BOTTOM SHEET FOR NAMING/SAVING -->
-  <div id="problemSheet"  class="sheet">
+  <!-- BOTTOM SHEET FOR NAMING / SAVING -->
+  <div id="problemSheet" class="sheet hidden">
     <div class="sheet-handle"></div>
     <div class="sheet-body">
-      <input id="problemName" placeholder="Problem name" />
+      <input    id="problemName" placeholder="Problem name" />
       <textarea id="problemDesc" placeholder="Description (optional)"></textarea>
       <div class="sheet-actions">
         <button id="cancelSheetBtn">Cancel</button>

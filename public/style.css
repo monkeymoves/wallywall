@@ -14,57 +14,90 @@
   --sheet-peek:  30px;
   --font:        system-ui, sans-serif;
 }
-* { box-sizing: border-box; margin:0; padding:0; }
+* { box-sizing:border-box; margin:0; padding:0; }
 html, body {
   width:100%; height:100%; overflow:hidden;
   font-family:var(--font); background:var(--bg);
 }
 
-/* ─── NAV BAR ───────────────────────────────────────────────── */
+/* NAV BAR */
 .hdr {
   position:fixed; top:0; left:0; right:0; height:var(--hdr-h);
-  background:var(--panel-bg); display:flex; align-items:center;
-  padding:0 1rem; box-shadow:0 2px 4px var(--shadow); z-index:100;
+  background:var(--panel-bg); display:flex; flex-wrap:wrap;
+  align-items:center; padding:0 1rem;
+  box-shadow:0 2px 4px var(--shadow); z-index:100;
 }
-.hdr-btn { background:none; border:none; font-size:1.4rem; cursor:pointer; margin-right:.6rem; }
+.hdr-btn {
+  background:none; border:none; font-size:1.4rem;
+  cursor:pointer; margin-right:.6rem;
+}
 .hdr-title { font-weight:bold; margin-right:1rem; }
 .hdr-control { margin-right:.6rem; }
 .problem-select {
-  padding:.4rem .6rem; border:1px solid #ccc; border-radius:8px;
+  padding:.4rem .6rem; border:1px solid #ccc;
+  border-radius:8px;
 }
 .fab {
-  width:36px; height:36px; border:none; border-radius:50%;
-  background:var(--accent); color:#fff; font-size:1.5rem; cursor:pointer;
+  width:36px; height:36px; border:none;
+  border-radius:50%; background:var(--accent);
+  color:#fff; font-size:1.5rem; cursor:pointer;
 }
-.draw-toolbar { display:flex; gap:.4rem; }
+
+/* draw toolbar */
+.draw-toolbar {
+  display:flex; gap:.4rem; flex-wrap:wrap;
+  overflow-x:auto; max-width:100%;
+}
 .hold-btn {
-  background:#fff; border:1px solid #888; padding:.4rem .6rem;
-  border-radius:6px; cursor:pointer;
+  background:#fff; border:1px solid #888;
+  padding:.4rem .6rem; border-radius:6px;
+  cursor:pointer;
 }
 .hold-btn.active {
-  background:var(--accent); color:#fff; border-color:var(--accent);
+  background:var(--accent); color:#fff;
+  border-color:var(--accent);
 }
+
+/* hiding utility */
 .hidden { display:none!important; }
 
-/* ─── SIDEBAR ───────────────────────────────────────────────── */
+/* BOARDS PANEL */
 .boards-panel {
-  position:fixed; top:var(--hdr-h); bottom:0; left:0; width:260px;
-  background:var(--panel-bg); padding:1rem;
+  position:fixed; top:var(--hdr-h); bottom:0; left:0;
+  width:260px; background:var(--panel-bg); padding:1rem;
   box-shadow:2px 0 4px var(--shadow);
   transform:translateX(-100%); transition:transform .3s;
   overflow-y:auto; z-index:90;
 }
 .boards-panel.open { transform:translateX(0); }
 .boards-panel input, .boards-panel button {
-  width:100%; margin-bottom:.6rem; padding:.4rem; font-size:.95rem;
-  border:1px solid #ccc; border-radius:6px;
+  width:100%; margin-bottom:.6rem; padding:.4rem;
+  font-size:.95rem; border:1px solid #ccc;
+  border-radius:6px;
 }
 .boards-panel ul { list-style:none; }
 .boards-panel li {
-  padding:.5rem 0; border-bottom:1px solid #eee; cursor:pointer;
+  padding:.5rem 0; border-bottom:1px solid #eee;
+  cursor:pointer;
 }
 
-/* ─── BOARD VIEW ───────────────────────────────────────────── */
+/* AUTH PANEL */
+.auth-panel h3 {
+  margin-bottom:.6rem; font-size:.95rem;
+}
+.auth-panel input {
+  width:100%; margin-bottom:.5rem; padding:.4rem;
+  font-size:.95rem; border:1px solid #ccc;
+  border-radius:6px;
+}
+.auth-panel button {
+  width:100%; margin-bottom:.6rem; padding:.5rem;
+  font-size:.95rem; background:var(--accent);
+  color:#fff; border:none; border-radius:6px;
+}
+#signOutBtn { background:#f44336; }
+
+/* BOARD VIEW */
 .board-main {
   position:absolute; top:var(--hdr-h); bottom:0; left:0; right:0;
   background:#eee; display:flex; justify-content:center;
@@ -77,23 +110,27 @@ html, body {
   display:block; width:100%; border-radius:var(--radius);
 }
 #overlayCanvas {
-  position:absolute; top:0; left:0; width:100%; height:100%;
+  position:absolute; top:0; left:0;
+  width:100%; height:100%;
   pointer-events:none; z-index:50;
 }
 .board-main.editing .board-container {
-  border:3px dashed var(--accent); border-radius:var(--radius);
+  border:3px dashed var(--accent);
+  border-radius:var(--radius);
 }
 
-/* ─── SLIDING SHEET ─────────────────────────────────────────── */
+/* SLIDING SHEET */
 .sheet {
-  position:fixed; left:0; right:0; bottom:0; height:var(--sheet-h);
-  background:var(--panel-bg); border-top-left-radius:var(--radius);
+  position:fixed; left:0; right:0; bottom:0;
+  height:var(--sheet-h); background:var(--panel-bg);
+  border-top-left-radius:var(--radius);
   border-top-right-radius:var(--radius);
   box-shadow:0 -4px 12px var(--shadow);
   transform:translateY(calc(var(--sheet-h)-var(--sheet-peek)));
   transition:transform .3s; z-index:110; overflow:hidden;
 }
 .sheet.visible { transform:translateY(0); }
+.sheet.hidden  { /* uses default hide transform */ }
 .sheet-handle {
   width:60px; height:5px; background:rgba(0,0,0,0.2);
   border-radius:2px; margin:8px auto; cursor:grab;
@@ -103,34 +140,20 @@ html, body {
 }
 .sheet-body input, .sheet-body textarea {
   width:100%; padding:.6rem; margin-bottom:.7rem;
-  border:1px solid #ccc; border-radius:6px; font-size:.95rem;
+  border:1px solid #ccc; border-radius:6px;
+  font-size:.95rem;
 }
 .sheet-body textarea { resize:vertical; min-height:3rem; }
 .sheet-actions {
   display:flex; gap:.5rem; margin-top:auto;
 }
 .sheet-actions button {
-  flex:1; padding:.6rem; font-size:.95rem; border:none;
-  border-radius:6px; cursor:pointer;
+  flex:1; padding:.6rem; font-size:.95rem;
+  border:none; border-radius:6px; cursor:pointer;
 }
-.sheet-actions .primary { background:var(--accent); color:#fff; }
-
-.hidden,
-[hidden] {
-  display: none !important;
+.sheet-actions .primary {
+  background:var(--accent); color:#fff;
 }
-/* Allow the header controls to wrap onto a second line if needed */
-.hdr {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-/* And make the draw‐mode controls scrollable if they overflow */
-.draw-toolbar {
-  display: flex;
-  gap: .4rem;
-  flex-wrap: wrap;        /* wrap buttons onto a new row */
-  overflow-x: auto;       /* or scrollbar if they still don’t fit */
-  max-width: 100%;        /* don’t blow out the header */
+.board-main.editing {
+  padding-top:  10px;
 }
