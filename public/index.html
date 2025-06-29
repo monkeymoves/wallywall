@@ -2,77 +2,63 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>WallyWall</title>
   <link rel="stylesheet" href="style.css" />
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js" defer></script>
 </head>
 <body>
-  <h1>WallyWall</h1>
 
-  <!-- Authentication -->
-  <section id="auth">
-    <input  id="email"    type="email"    placeholder="Email" />
-    <input  id="password" type="password" placeholder="Password" />
-    <button id="signup">Sign Up</button>
-    <button id="login">Log In</button>
-    <pre   id="status"></pre>
-  </section>
+  <!-- NAV BAR -->
+  <header class="hdr">
+    <button id="menuBtn" class="hdr-btn" aria-label="Boards menu">☰</button>
+    <span class="hdr-title">WallyWall</span>
 
-  <hr />
+    <!-- view-mode controls -->
+    <select id="problemSelect" class="hdr-control problem-select">
+      <option value="">— Select a problem —</option>
+    </select>
+    <button id="newProblemBtn" class="hdr-control fab" aria-label="New problem">＋</button>
 
-  <!-- Board Upload -->
-  <section id="upload">
-    <h2>Upload Board Image</h2>
-    <input id="file" type="file" disabled />
-    <p    id="fileStatus"></p>
-  </section>
+    <!-- draw-mode controls (hidden until you click +) -->
+    <div id="drawControls" class="hdr-control draw-toolbar hidden">
+      <button data-type="start" class="hold-btn active">Start</button>
+      <button data-type="hold"  class="hold-btn">Hold</button>
+      <button data-type="finish" class="hold-btn">Finish</button>
+      <button data-type="delete" class="hold-btn">Delete</button>
+    </div>
+    <button id="finishDrawBtn" class="hdr-btn hidden" aria-label="Finish drawing">✓</button>
+    <button id="cancelDrawBtn" class="hdr-btn hidden" aria-label="Cancel drawing">✕</button>
+  </header>
 
-  <hr />
-
-  <!-- Your Boards List -->
-  <section>
+  <!-- BOARDS SIDEBAR -->
+  <aside id="boardsPanel" class="boards-panel">
     <h2>Your Boards</h2>
+    <input id="file" type="file" />
+    <p id="fileStatus"></p>
     <ul id="boardsList"></ul>
-  </section>
+  </aside>
 
-  <hr />
-
-  <!-- Board + Overlay + Problem Controls -->
-  <section>
-    <h2>Current Board &amp; Problems</h2>
-
-    <!-- board container -->
-    <div id="boardContainer"
-         style="position:relative; width:100%; max-width:600px;">
-      <!-- The actual board image -->
-      <img    id="currentBoard"
-              alt="Selected board"
-              style="width:100%; display:block;" />
-      <!-- Canvas sits on top -->
-      <canvas id="overlayCanvas"
-              style="position:absolute; top:0; left:0;
-                     width:100%; height:100%; display:none;">
-      </canvas>
+  <!-- BOARD + OVERLAY -->
+  <main id="boardMain" class="board-main">
+    <div class="board-container">
+      <img id="currentBoard" alt="Selected board layout" />
+      <canvas id="overlayCanvas"></canvas>
     </div>
+  </main>
 
-    <!-- Controls to place and save holds -->
-    <div id="problemControls"
-         style="margin-top:1rem; display:none;">
-      <button id="newProblemBtn">New Problem</button>
-      <select id="problemSelect">
-        <option value="">— Select a problem —</option>
-      </select>
-      <select id="holdType">
-        <option value="start">Start (Green)</option>
-        <option value="hold">Hold  (Yellow)</option>
-        <option value="finish">Finish (White)</option>
-      </select>
-      <input  id="problemName" type="text" placeholder="Problem name" />
-      <input  id="problemDesc" type="text" placeholder="Description" />
-      <button id="saveProblemBtn">Save Problem</button>
-      <p      id="problemStatus"></p>
+  <!-- BOTTOM SHEET FOR NAMING/SAVING -->
+  <div id="problemSheet"  class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-body">
+      <input id="problemName" placeholder="Problem name" />
+      <textarea id="problemDesc" placeholder="Description (optional)"></textarea>
+      <div class="sheet-actions">
+        <button id="cancelSheetBtn">Cancel</button>
+        <button id="saveProblemBtn" class="primary">Save</button>
+      </div>
     </div>
-  </section>
+  </div>
+
 </body>
 </html>

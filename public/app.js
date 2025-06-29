@@ -1,279 +1,283 @@
 // public/app.js
-
-// 1️⃣ Firebase SDK imports
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
 import {
-  getAuth,
-  onAuthStateChanged,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  getAuth, onAuthStateChanged, signInAnonymously
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  serverTimestamp,
-  doc,
-  getDocs,
-  getDoc,
-  where
+  getFirestore, collection, onSnapshot,
+  query, orderBy, addDoc, serverTimestamp,
+  doc, getDocs, getDoc, where
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL
+  getStorage, ref as storageRef,
+  uploadBytes, getDownloadURL
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
-// 2️⃣ Your config
-const firebaseConfig = {
-  apiKey: "AIzaSyAA-PKUvVk4DnCMlYbMPNR6Zd3lBtbrBGE",
-  authDomain: "wallywall-18303.firebaseapp.com",
-  projectId: "wallywall-18303",
-  storageBucket: "wallywall-18303.firebasestorage.app",
-  messagingSenderId: "699677979638",
-  appId: "1:699677979638:web:ecec0b42369c55fffdcdd7",
-  measurementId: "G-5KRL7X1N81"
-};
-
-// 3️⃣ Initialize SDKs
-const app     = initializeApp(firebaseConfig);
-const auth    = getAuth(app);
-const db      = getFirestore(app);
-const storage = getStorage(app);
-
-// 4️⃣ Cache DOM nodes
-const emailEl         = document.getElementById('email');
-const passEl          = document.getElementById('password');
-const signupBtn       = document.getElementById('signup');
-const loginBtn        = document.getElementById('login');
-const statusEl        = document.getElementById('status');
-
-const fileInput       = document.getElementById('file');
-const fileStatusEl    = document.getElementById('fileStatus');
-const boardsListEl    = document.getElementById('boardsList');
-
-const currentBoardImg = document.getElementById('currentBoard');
-const overlayCanvas   = document.getElementById('overlayCanvas');
-const problemControls = document.getElementById('problemControls');
-const problemSelect   = document.getElementById('problemSelect');
-const newProblemBtn   = document.getElementById('newProblemBtn');
-const holdTypeEl      = document.getElementById('holdType');
-const nameEl          = document.getElementById('problemName');
-const descEl          = document.getElementById('problemDesc');
-const saveBtn         = document.getElementById('saveProblemBtn');
-const problemStatusEl = document.getElementById('problemStatus');
-
-// disable file-picker until signed in
-fileInput.disabled = true;
-
-// 5️⃣ Auth handlers
-signupBtn.onclick = async () => {
-  try {
-    await createUserWithEmailAndPassword(auth, emailEl.value, passEl.value);
-  } catch (e) {
-    statusEl.textContent = e.message;
-  }
-};
-loginBtn.onclick = async () => {
-  try {
-    await signInWithEmailAndPassword(auth, emailEl.value, passEl.value);
-  } catch (e) {
-    statusEl.textContent = e.message;
-  }
-};
-
-// 6️⃣ React to auth state
-let unsubscribeBoards;
-onAuthStateChanged(auth, user => {
-  if (user) {
-    statusEl.textContent = `Logged in as ${user.email}`;
-    fileInput.disabled   = false;
-    startBoardsListener();
-  } else {
-    statusEl.textContent       = 'Please sign up or log in';
-    fileInput.disabled         = true;
-    fileStatusEl.textContent   = '';
-    boardsListEl.innerHTML     = '';
-    overlayCanvas.style.display   = 'none';
-    problemControls.style.display = 'none';
-    currentBoardImg.src           = '';
-    if (unsubscribeBoards) unsubscribeBoards();
-  }
-});
-
-// 7️⃣ Upload a board image → Firestore “boards” collection
-fileInput.onchange = async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const sbRef = storageRef(storage, `layouts/${file.name}`);
-  try {
-    await uploadBytes(sbRef, file);
-    const url = await getDownloadURL(sbRef);
-
-    fileStatusEl.textContent = 'Uploaded! Saving board…';
-    await addDoc(collection(db, 'boards'), {
-      imageUrl:  url,
-      timestamp: serverTimestamp(),
-      owner:     auth.currentUser.uid
-    });
-    fileStatusEl.textContent = 'Board saved!';
-  } catch (err) {
-    fileStatusEl.textContent = `Upload error: ${err.message}`;
-  }
-};
-
-// 8️⃣ Real-time listener for boards list
-function startBoardsListener() {
-  if (unsubscribeBoards) unsubscribeBoards();
-  const q = query(
-    collection(db, 'boards'),
-    orderBy('timestamp')
-  );
-  unsubscribeBoards = onSnapshot(q, snap => {
-    boardsListEl.innerHTML = '';
-    snap.forEach(docSnap => {
-      const li = document.createElement('li');
-      li.textContent = docSnap.id;
-      li.onclick    = () => loadBoard(docSnap.id, docSnap.data().imageUrl);
-      boardsListEl.appendChild(li);
-    });
+window.addEventListener('DOMContentLoaded', () => {
+  // ── Firebase init ─────────────────────────────
+  initializeApp({
+    apiKey: "AIzaSyAA-PKUvVk4DnCMlYbMPNR6Zd3lBtbrBGE",
+    authDomain: "wallywall-18303.firebaseapp.com",
+    projectId: "wallywall-18303",
+    storageBucket: "wallywall-18303.firebasestorage.app",
+    messagingSenderId: "699677979638",
+    appId: "1:699677979638:web:ecec0b42369c55fffdcdd7",
+    measurementId: "G-5KRL7X1N81"
   });
-}
+  const auth    = getAuth();
+  const db      = getFirestore();
+  const storage = getStorage();
 
-// 9️⃣ Load board image & set up overlay + problem picker
-let overlayCtx, currentBoardId, holds = [];
-function loadBoard(boardId, imageUrl) {
-  currentBoardId = boardId;
-  holds = [];
-  overlayCanvas.style.display   = 'none';
-  problemControls.style.display = 'none';
+  // ── DOM refs ────────────────────────────────────
+  const by              = id => document.getElementById(id);
+  const menuBtn         = by('menuBtn');
+  const boardsPanel     = by('boardsPanel');
+  const fileInput       = by('file');
+  const fileStatus      = by('fileStatus');
+  const boardsList      = by('boardsList');
+  const boardMain       = by('boardMain');
+  const currentBoard    = by('currentBoard');
+  const canvas          = by('overlayCanvas');
+  const problemSelect   = by('problemSelect');
+  const newProblemBtn   = by('newProblemBtn');
+  const drawControls    = by('drawControls');
+  const finishDrawBtn   = by('finishDrawBtn');
+  const cancelDrawBtn   = by('cancelDrawBtn');
+  const problemSheet    = by('problemSheet');
+  const cancelSheetBtn  = by('cancelSheetBtn');
+  const saveProblemBtn  = by('saveProblemBtn');
+  const problemName     = by('problemName');
+  const problemDesc     = by('problemDesc');
+  const holdBtns        = Array.from(document.querySelectorAll('.hold-btn'));
 
-  currentBoardImg.src = imageUrl;
-  currentBoardImg.onload = () => {
-    // size canvas to match natural image
-    overlayCanvas.width  = currentBoardImg.naturalWidth;
-    overlayCanvas.height = currentBoardImg.naturalHeight;
-    // and CSS-scale to match displayed image
-    overlayCanvas.style.width  = currentBoardImg.clientWidth  + 'px';
-    overlayCanvas.style.height = currentBoardImg.clientHeight + 'px';
-    overlayCtx = overlayCanvas.getContext('2d');
+  // ── Drawing constants ──────────────────────────
+  const DOT_RADIUS = 10;
+  const DOT_WIDTH  = 3;
 
-    // populate problem dropdown
-    loadProblemsForBoard(boardId);
+  // ── State ─────────────────────────────────────
+  let ctx, boardId, holds = [], mode = 'start';
 
-    problemControls.style.display = 'block';
-  };
-}
+  // hide everything on load
+  drawControls.classList.add('hidden');
+  finishDrawBtn .classList.add('hidden');
+  cancelDrawBtn .classList.add('hidden');
+  problemSheet .classList.add('hidden');
+  canvas.style.pointerEvents = 'none';
 
-// ——— populate saved problems without requiring an index ———
-async function loadProblemsForBoard(boardId) {
-  problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'problems'), where('boardId', '==', boardId))
-    );
-    // sort client-side by createdAt descending
-    const problems = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => {
-        const ta = a.createdAt?.toMillis?.() || 0;
-        const tb = b.createdAt?.toMillis?.() || 0;
-        return tb - ta;
+  // ── Auth ──────────────────────────────────────
+  onAuthStateChanged(auth, user => {
+    if (!user) signInAnonymously(auth).catch(console.error);
+  });
+
+  // ── Toggle sidebar ────────────────────────────
+  menuBtn.onclick = () => boardsPanel.classList.toggle('open');
+
+  // ── Upload board ──────────────────────────────
+  fileInput.onchange = async () => {
+    const u = auth.currentUser;
+    if (!u || u.isAnonymous) {
+      return alert('⚠️ Please sign in to upload boards.');
+    }
+    const f = fileInput.files[0];
+    if (!f) return;
+    try {
+      const r   = storageRef(storage, `layouts/${f.name}`);
+      await uploadBytes(r,f);
+      const url = await getDownloadURL(r);
+      fileStatus.textContent = 'Uploading…';
+      await addDoc(collection(db,'boards'), {
+        imageUrl: url,
+        timestamp: serverTimestamp(),
+        ownerUid: u.uid
       });
-    problems.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value       = p.id;
-      opt.textContent = p.name;
-      problemSelect.appendChild(opt);
-    });
-  } catch (e) {
-    console.error('Couldn’t load problems:', e);
+      fileStatus.textContent = '✅ Saved';
+    } catch(e) {
+      fileStatus.textContent = `❌ ${e.message}`;
+    }
+  };
+
+  // ── Real-time boards + auto-load first ────────
+  let firstLoad = false;
+  onSnapshot(
+    query(collection(db,'boards'), orderBy('timestamp','desc')),
+    snap => {
+      boardsList.innerHTML = '';
+      snap.docs.forEach(d => {
+        const li = document.createElement('li');
+        li.textContent = d.id;
+        li.onclick     = () => loadBoard(d.id, d.data().imageUrl);
+        boardsList.append(li);
+      });
+      if (!firstLoad && snap.docs.length) {
+        firstLoad = true;
+        const f = snap.docs[0];
+        loadBoard(f.id, f.data().imageUrl);
+      }
+    }
+  );
+
+  // ── Load board & reset ─────────────────────────
+  function loadBoard(id, url) {
+    boardId = id;
+    holds   = [];
+    exitPlacementMode();
+    currentBoard.src = url;
+    currentBoard.onload = () => {
+      ctx = canvas.getContext('2d');
+      canvas.width  = currentBoard.naturalWidth;
+      canvas.height = currentBoard.naturalHeight;
+      canvas.style.width  = currentBoard.clientWidth + 'px';
+      canvas.style.height = currentBoard.clientHeight + 'px';
+      loadProblems(id);
+    };
   }
-}
 
-// 🔟 When user selects an existing problem
-problemSelect.onchange = async () => {
-  const pid = problemSelect.value;
-  if (!pid) { newProblemBtn.click(); return; }
-
-  try {
-    const dsnap = await getDoc(doc(db, 'problems', pid));
-    holds = dsnap.data().holds || [];
-    overlayCanvas.style.display = 'block';
-    redrawHolds();
-  } catch (e) {
-    console.error('Error fetching problem:', e);
+  // ── Populate problem dropdown ─────────────────
+  async function loadProblems(bid) {
+    problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
+    const snap = await getDocs(
+      query(collection(db,'problems'), where('boardId','==',bid))
+    );
+    snap.docs
+      .map(d => ({ id:d.id, ...d.data() }))
+      .sort((a,b)=>(b.createdAt?.toMillis()||0)-(a.createdAt?.toMillis()||0))
+      .forEach(p => {
+        const o = document.createElement('option');
+        o.value       = p.id;
+        o.textContent = p.name;
+        problemSelect.append(o);
+      });
   }
-};
 
-// 1️⃣1️⃣ “New Problem” — clear overlay
-newProblemBtn.onclick = () => {
-  holds = [];
-  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  overlayCanvas.style.display = 'block';
-  problemSelect.value = '';
-};
+  // ── Viewing existing problem ──────────────────
+  problemSelect.onchange = async () => {
+    if (!problemSelect.value) {
+      return startPlacementMode();
+    }
+    const ds = await getDoc(doc(db,'problems',problemSelect.value));
+    holds = ds.data().holds || [];
+    redraw();
+  };
 
-// 1️⃣2️⃣ Place new holds on click
-overlayCanvas.onclick = e => {
-  const rect = overlayCanvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (overlayCanvas.width  / rect.width);
-  const y = (e.clientY - rect.top)  * (overlayCanvas.height / rect.height);
-  holds.push({
-    xRatio: x / overlayCanvas.width,
-    yRatio: y / overlayCanvas.height,
-    type:   holdTypeEl.value
+  // ── ENTER / EXIT placement ────────────────────
+  newProblemBtn.onclick = startPlacementMode;
+  function startPlacementMode() {
+    holds = []; redraw();
+    boardMain.classList.add('editing');
+    problemSelect.classList.add('hidden');
+    newProblemBtn.classList.add('hidden');
+    drawControls.classList.remove('hidden');
+    finishDrawBtn .classList.remove('hidden');
+    cancelDrawBtn .classList.remove('hidden');
+    canvas.style.pointerEvents = 'auto';
+    problemSheet.classList.add('hidden');
+  }
+  function exitPlacementMode() {
+    boardMain.classList.remove('editing');
+    problemSelect.classList.remove('hidden');
+    newProblemBtn.classList.remove('hidden');
+    drawControls.classList.add('hidden');
+    finishDrawBtn .classList.add('hidden');
+    cancelDrawBtn .classList.add('hidden');
+    canvas.style.pointerEvents = 'none';
+  }
+
+  cancelDrawBtn.onclick = () => {
+    holds = []; redraw();
+    exitPlacementMode();
+  };
+
+  finishDrawBtn.onclick = () => {
+    if (holds.length === 0) {
+      return alert('⚠️ Place at least one hold first.');
+    }
+    exitPlacementMode();
+    problemSheet.classList.remove('hidden');
+  };
+
+  // ── Choose hold-type ──────────────────────────
+  holdBtns.forEach(b => {
+    b.onclick = () => {
+      mode = b.dataset.type;
+      holdBtns.forEach(x=>x.classList.toggle('active', x===b));
+      canvas.style.cursor = mode==='delete'? 'not-allowed':'crosshair';
+    };
   });
-  redrawHolds();
-};
 
-// 1️⃣3️⃣ Redraw all holds at a screen-fixed 20 px radius
-function redrawHolds() {
-  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  // ── Place/delete circles ──────────────────────
+  canvas.onclick = e => {
+    if (!boardMain.classList.contains('editing')) return;
+    const r     = canvas.getBoundingClientRect();
+    const x     = (e.clientX - r.left)*(canvas.width/r.width);
+    const y     = (e.clientY - r.top )*(canvas.height/r.height);
+    const scale = canvas.width / canvas.clientWidth;
 
-  // compute native radius so it draws as ~20px on screen
-  const scale = overlayCanvas.width / overlayCanvas.clientWidth;
-  const nativeR = 10 * scale;
+    if (mode==='delete') {
+      let idx=-1, best=(12*scale)**2;
+      holds.forEach((h,i)=>{
+        const dx = x - h.xRatio*canvas.width;
+        const dy = y - h.yRatio*canvas.height;
+        const d2 = dx*dx + dy*dy;
+        if (d2<best){ best=d2; idx=i; }
+      });
+      if (idx>=0) holds.splice(idx,1);
+    } else {
+      holds.push({ xRatio:x/canvas.width, yRatio:y/canvas.height, type:mode });
+    }
+    redraw();
+  };
 
-  holds.forEach(h => {
-    const x = h.xRatio * overlayCanvas.width;
-    const y = h.yRatio * overlayCanvas.height;
-    overlayCtx.beginPath();
-    overlayCtx.arc(x, y, nativeR, 0, 2 * Math.PI);
-
-    if (h.type === 'start')    overlayCtx.fillStyle = 'rgba(144,238,144,0.6)';
-    else if (h.type === 'hold') overlayCtx.fillStyle = 'rgba(255,255,0,0.6)';
-    else                         overlayCtx.fillStyle = 'rgba(255,255,255,0.8)';
-
-    overlayCtx.fill();
-  });
-}
-
-// 1️⃣4️⃣ Save the problem
-saveBtn.onclick = async () => {
-  const name = nameEl.value.trim();
-  if (!name || holds.length === 0) {
-    problemStatusEl.textContent = 'Please give a name & place holds.';
-    return;
-  }
-  try {
-    await addDoc(collection(db, 'problems'), {
-      boardId:     currentBoardId,
-      name,
-      description: descEl.value.trim(),
-      holds,
-      owner:       auth.currentUser.uid,
-      createdAt:   serverTimestamp()
+  // ── Redraw all circles ────────────────────────
+  function redraw() {
+    if (!ctx) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const scale = canvas.width / canvas.clientWidth;
+    holds.forEach(h=>{
+      const cx = h.xRatio*canvas.width;
+      const cy = h.yRatio*canvas.height;
+      ctx.beginPath();
+      ctx.arc(cx, cy, DOT_RADIUS*scale, 0, 2*Math.PI);
+      ctx.lineWidth   = DOT_WIDTH*scale;
+      ctx.fillStyle   = 'transparent';
+      ctx.strokeStyle = (
+        h.type==='start'? getComputedStyle(document.documentElement).getPropertyValue('--start-c') :
+        h.type==='hold' ? getComputedStyle(document.documentElement).getPropertyValue('--hold-c')  :
+                           getComputedStyle(document.documentElement).getPropertyValue('--finish-c')
+      ).trim();
+      ctx.fill();
+      ctx.stroke();
     });
-    problemStatusEl.textContent = 'Problem saved!';
-    overlayCanvas.style.display = 'none';
-    await loadProblemsForBoard(currentBoardId);
-  } catch (e) {
-    problemStatusEl.textContent = `Error: ${e.message}`;
   }
-};
+
+  // ── Bottom sheet Cancel/Save ─────────────────
+  cancelSheetBtn.onclick = () => {
+    problemSheet.classList.add('hidden');
+  };
+  saveProblemBtn.onclick = async () => {
+    const nm = problemName.value.trim();
+    if (!nm) {
+      return alert('⚠️ Name is required.');
+    }
+    let u = auth.currentUser;
+    if (!u || u.isAnonymous) {
+      alert('Signing in anonymously…');
+      await signInAnonymously(auth);
+      u = auth.currentUser;
+    }
+    try {
+      await addDoc(collection(db,'problems'),{
+        boardId,
+        name: nm,
+        description: problemDesc.value.trim(),
+        holds,
+        ownerUid: u.uid,
+        createdAt: serverTimestamp()
+      });
+      alert('✅ Saved!');
+      problemSheet.classList.add('hidden');
+      loadProblems(boardId);
+    } catch(e) {
+      alert(`❌ ${e.message}`);
+    }
+  };
+});
