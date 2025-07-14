@@ -3,19 +3,29 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebas
 import {
   getAuth,
   onAuthStateChanged,
-  signInAnonymously,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 import {
-  getFirestore, collection, onSnapshot,
-  query, orderBy, addDoc, updateDoc,
-  serverTimestamp, doc, getDocs, getDoc, where
+  getFirestore,
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  addDoc,
+  updateDoc,
+  serverTimestamp,
+  doc,
+  getDocs,
+  getDoc,
+  where
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import {
-  getStorage, ref as storageRef,
-  uploadBytes, getDownloadURL
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -34,95 +44,105 @@ window.addEventListener('DOMContentLoaded', () => {
   const storage = getStorage();
 
   // ── DOM refs ────────────────────────────────────
-  const $ = id => document.getElementById(id);
-  const menuBtn        = $('menuBtn');
-  const boardsPanel    = $('boardsPanel');
-  const fileInput      = $('file');
-  const fileStatus     = $('fileStatus');
-  const boardsList     = $('boardsList');
-  const authStatus     = $('authStatus');
-  const emailInput     = $('emailInput');
-  const passwordInput  = $('passwordInput');
-  const loginBtn       = $('loginBtn');
-  const signOutBtn     = $('signOutBtn');
-  const boardMain      = $('boardMain');
-  const currentBoard   = $('currentBoard');
-  const canvas         = $('overlayCanvas');
-  const problemSelect  = $('problemSelect');
-  const newBtn         = $('newProblemBtn');
-  const editBtn        = $('editProblemBtn');
-  const drawControls   = $('drawControls');
-  const finishBtn      = $('finishDrawBtn');
-  const cancelBtn      = $('cancelDrawBtn');
-  const sheet          = $('problemSheet');
-  const cancelSheetBtn = $('cancelSheetBtn');
-  const saveSheetBtn   = $('saveProblemBtn');
-  const pNameInput     = $('problemName');
-  const pDescInput     = $('problemDesc');
-  const holdBtns       = Array.from(document.querySelectorAll('.hold-btn'));
+  const by               = id => document.getElementById(id);
+  const menuBtn          = by('menuBtn');
+  const boardsPanel      = by('boardsPanel');
+  const fileInput        = by('file');
+  const fileStatus       = by('fileStatus');
+  const boardsList       = by('boardsList');
+  const authPanel        = by('authPanel');
+  const emailInput       = by('emailInput');
+  const passwordInput    = by('passwordInput');
+  const loginBtn         = by('loginBtn');
+  const signOutBtn       = by('signOutBtn');
+  const hdrTitle         = document.querySelector('.hdr-title');
+  const boardMain        = by('boardMain');
+  const currentBoard     = by('currentBoard');
+  const canvas           = by('overlayCanvas');
+  const problemSelect    = by('problemSelect');
+  const newProblemBtn    = by('newProblemBtn');
+  const editProblemBtn   = by('editProblemBtn');
+  const drawControls     = by('drawControls');
+  const finishDrawBtn    = by('finishDrawBtn');
+  const cancelDrawBtn    = by('cancelDrawBtn');
+  const problemSheet     = by('problemSheet');
+  const cancelSheetBtn   = by('cancelSheetBtn');
+  const saveProblemBtn   = by('saveProblemBtn');
+  const problemName      = by('problemName');
+  const problemDesc      = by('problemDesc');
+  const holdBtns         = Array.from(document.querySelectorAll('.hold-btn'));
 
   // ── Drawing constants ──────────────────────────
-  const DOT_R = 10, DOT_W = 3;
+  const DOT_RADIUS = 10;
+  const DOT_WIDTH  = 3;
 
-  // ── State ─────────────────────────────────────
+  // ── App state ──────────────────────────────────
   let ctx, boardId, holds = [], mode = 'start';
 
-  // ── Helpers ───────────────────────────────────
-  const isLoggedIn = () => {
-    const u = auth.currentUser;
-    return u && !u.isAnonymous;
-  };
+  // ── Initial UI ─────────────────────────────────
+  drawControls.classList.add('hidden');
+  finishDrawBtn .classList.add('hidden');
+  cancelDrawBtn .classList.add('hidden');
+  problemSheet.classList.remove('visible');
+  editProblemBtn.classList.add('hidden');
+  newProblemBtn .classList.add('hidden');
+  canvas.style.pointerEvents = 'none';
+  // make “＋” look like our hdr-btn
+  newProblemBtn.classList.remove('fab');
+  newProblemBtn.classList.add('hdr-btn');
 
-  // ── Auth-UI updates ────────────────────────────
-  function updateAuthUI(u) {
-    if (!u || u.isAnonymous) {
-      authStatus.textContent = 'Not signed in';
+  // ── AUTH UI ────────────────────────────────────
+  function updateAuthUI(user) {
+    const loggedIn = !!user && !user.isAnonymous;
+    newProblemBtn.classList.toggle('hidden', !loggedIn);
+    editProblemBtn .classList.toggle('hidden', !(loggedIn && !!problemSelect.value));
+
+    if (!loggedIn) {
+      authPanel.querySelector('h3')?.remove();
       loginBtn.classList.remove('hidden');
       signOutBtn.classList.add('hidden');
-      newBtn.classList.add('hidden');
-      editBtn.classList.add('hidden');
     } else {
-      authStatus.textContent = `Signed in: ${u.email||'Anonymous'}`;
-      loginBtn.classList.add('hidden');
+      loginBtn .classList.add('hidden');
       signOutBtn.classList.remove('hidden');
-      newBtn.classList.remove('hidden');
-      editBtn.classList.toggle('hidden', !problemSelect.value);
+      authPanel.querySelector('h3')?.remove();
+      const h = document.createElement('h3');
+      h.textContent = `Signed in: ${user.email}`;
+      authPanel.prepend(h);
     }
   }
-  onAuthStateChanged(auth, updateAuthUI);
+  onAuthStateChanged(auth, u => updateAuthUI(u));
 
-  // ── Login / Sign-up ────────────────────────────
   loginBtn.onclick = async () => {
-    const e = emailInput.value.trim(), p = passwordInput.value;
-    if (!e || !p) return alert('Enter both email & password.');
+    const email = emailInput.value.trim();
+    const pass  = passwordInput.value;
+    if (!email||!pass) return alert('Enter email & password.');
     try {
-      await signInWithEmailAndPassword(auth, e, p);
-    } catch(err) {
-      if (err.code === 'auth/user-not-found') {
-        await createUserWithEmailAndPassword(auth, e, p);
+      await signInWithEmailAndPassword(auth,email,pass);
+    } catch(e) {
+      if (e.code==='auth/user-not-found') {
+        await createUserWithEmailAndPassword(auth,email,pass);
       } else {
-        alert(err.message);
+        alert(`❌ ${e.message}`);
       }
     }
   };
   signOutBtn.onclick = () => signOut(auth);
 
-  // ── Sidebar toggle ────────────────────────────
+  // ── Toggle sidebar ────────────────────────────
   menuBtn.onclick = () => boardsPanel.classList.toggle('open');
 
-  // ── Upload new board ──────────────────────────
+  // ── Upload board ──────────────────────────────
   fileInput.onchange = async () => {
-    if (!isLoggedIn()) return alert('Sign in to upload boards.');
+    const u = auth.currentUser;
+    if (!u||u.isAnonymous) return alert('⚠️ Sign in to upload');
     const f = fileInput.files[0]; if (!f) return;
     try {
       const r   = storageRef(storage, `layouts/${f.name}`);
-      await uploadBytes(r, f);
+      await uploadBytes(r,f);
       const url = await getDownloadURL(r);
       fileStatus.textContent = 'Uploading…';
       await addDoc(collection(db,'boards'), {
-        imageUrl:url,
-        timestamp:serverTimestamp(),
-        ownerUid:auth.currentUser.uid
+        imageUrl:url, timestamp:serverTimestamp(), ownerUid:u.uid
       });
       fileStatus.textContent = '✅ Saved';
     } catch(e) {
@@ -130,38 +150,38 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // ── Real-time boards + auto-load ──────────────
-  let firstLoad = false;
+  // ── Real-time boards + auto-load ───────────────
+  let firstLoad=false;
   onSnapshot(
-    query(collection(db,'boards'), orderBy('timestamp','desc')),
+    query(collection(db,'boards'),orderBy('timestamp','desc')),
     snap => {
       boardsList.innerHTML = '';
-      snap.docs.forEach(d => {
+      snap.docs.forEach(d=>{
         const li = document.createElement('li');
         li.textContent = d.id;
-        li.onclick = () => loadBoard(d.id, d.data().imageUrl);
+        li.onclick = ()=> loadBoard(d.id,d.data().imageUrl);
         boardsList.append(li);
       });
       if (!firstLoad && snap.docs.length) {
         firstLoad = true;
-        const f = snap.docs[0];
-        loadBoard(f.id, f.data().imageUrl);
+        loadBoard(snap.docs[0].id,snap.docs[0].data().imageUrl);
       }
     }
   );
 
-  // ── Load board & reset UI ─────────────────────
-  function loadBoard(id, url) {
+  // ── Load a board ──────────────────────────────
+  function loadBoard(id,url) {
     boardId = id;
-    exits();  // hide any drawing UI
+    holds   = [];
+    exitPlacementMode();
     currentBoard.src = url;
-    currentBoard.onload = async () => {
+    currentBoard.onload = () => {
       ctx = canvas.getContext('2d');
       canvas.width  = currentBoard.naturalWidth;
       canvas.height = currentBoard.naturalHeight;
-      canvas.style.width  = currentBoard.clientWidth + 'px';
-      canvas.style.height = currentBoard.clientHeight + 'px';
-      await loadProblems(id);
+      canvas.style.width  = `${currentBoard.clientWidth}px`;
+      canvas.style.height = `${currentBoard.clientHeight}px`;
+      loadProblems(id);
     };
   }
 
@@ -169,115 +189,120 @@ window.addEventListener('DOMContentLoaded', () => {
   async function loadProblems(bid) {
     problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
     const snap = await getDocs(
-      query(collection(db,'problems'), where('boardId','==',bid))
+      query(collection(db,'problems'),where('boardId','==',bid))
     );
     snap.docs
-      .map(d=>({ id:d.id, ...d.data() }))
+      .map(d=>({id:d.id,...d.data()}))
       .sort((a,b)=>(b.createdAt?.toMillis()||0)-(a.createdAt?.toMillis()||0))
-      .forEach(p => {
-        const o = document.createElement('option');
-        o.value       = p.id;
-        o.textContent = p.name;
+      .forEach(p=>{
+        const o=document.createElement('option');
+        o.value=p.id; o.textContent=p.name;
         problemSelect.append(o);
       });
   }
 
-  // ── Select vs New/Edit toggle ─────────────────
+  // ── Select / New / Edit ───────────────────────
   problemSelect.onchange = async () => {
-    editBtn.classList.toggle('hidden', !(isLoggedIn() && problemSelect.value));
+    const loggedIn = !!auth.currentUser && !auth.currentUser.isAnonymous;
+    editProblemBtn.classList.toggle('hidden', !(loggedIn && !!problemSelect.value));
     if (!problemSelect.value) {
-      // blank → new
-      startNew();
+      startPlacementMode(true);
     } else {
-      // load existing holds
       const ds = await getDoc(doc(db,'problems',problemSelect.value));
-      holds = ds.data().holds || [];
+      holds = ds.data().holds||[];
       redraw();
-      exits();  // just viewing
     }
   };
 
-  // ── New & Edit handlers ──────────────────────
-  newBtn.onclick = () => {
-    if (!isLoggedIn()) return alert('Sign in to create.');
-    startNew();
+  newProblemBtn.onclick = () => {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
+      return alert('⚠️ Please sign in to create.');
+    }
+    startPlacementMode(true);
   };
-  editBtn.onclick = async () => {
-    if (!isLoggedIn()) return alert('Sign in to edit.');
-    if (!problemSelect.value) return;
-    // fetch problem data
+
+  editProblemBtn.onclick = async () => {
+    if (!auth.currentUser||auth.currentUser.isAnonymous||!problemSelect.value) {
+      return alert('⚠️ Sign in & pick a problem first.');
+    }
     const ds = await getDoc(doc(db,'problems',problemSelect.value));
-    const data = ds.data();
-    pNameInput.value = data.name || '';
-    pDescInput.value = data.description || '';
-    holds = data.holds || [];
-    startEdit();
+    const d  = ds.data();
+    holds              = d.holds||[];
+    problemName.value  = d.name        || '';
+    problemDesc.value  = d.description || '';
+    redraw();
+    startPlacementMode(false);
   };
 
-  function startNew() {
-    holds = []; redraw();
-    enterDrawUI();
-  }
-  function startEdit() {
-    redraw();  // already loaded holds
-    enterDrawUI();
-  }
-
-  function enterDrawUI() {
+  // ── Enter / Exit draw mode ────────────────────
+  function startPlacementMode(isNew) {
+    if (isNew) {
+      // ←––––––––––——————— **clear the select** ———————–––––––––––––→
+      problemSelect.value = '';
+      //
+      holds = [];
+      redraw();
+      problemName.value = '';
+      problemDesc.value = '';
+    }
     boardMain.classList.add('editing');
-    problemSelect .classList.add('hidden');
-    newBtn        .classList.add('hidden');
-    editBtn       .classList.add('hidden');
-    drawControls  .classList.remove('hidden');
-    finishBtn     .classList.remove('hidden');
-    cancelBtn     .classList.remove('hidden');
+    hdrTitle.classList.add('hidden');
+    problemSelect.classList.add('hidden');
+    newProblemBtn .classList.add('hidden');
+    editProblemBtn.classList.add('hidden');
+    drawControls .classList.remove('hidden');
+    finishDrawBtn.classList.remove('hidden');
+    cancelDrawBtn.classList.remove('hidden');
     canvas.style.pointerEvents = 'auto';
-    sheet.classList.add('hidden');
+    problemSheet.classList.remove('visible');
   }
 
-  function exits() {
+  function exitPlacementMode() {
     boardMain.classList.remove('editing');
-    problemSelect .classList.remove('hidden');
-    newBtn        .classList.toggle('hidden', !isLoggedIn());
-    editBtn       .classList.toggle('hidden', !(isLoggedIn()&&problemSelect.value));
-    drawControls  .classList.add('hidden');
-    finishBtn     .classList.add('hidden');
-    cancelBtn     .classList.add('hidden');
+    hdrTitle.classList.remove('hidden');
+    problemSelect.classList.remove('hidden');
+    const loggedIn = !!auth.currentUser && !auth.currentUser.isAnonymous;
+    newProblemBtn .classList.toggle('hidden', !loggedIn);
+    editProblemBtn.classList.toggle('hidden', !(loggedIn && !!problemSelect.value));
+    drawControls .classList.add('hidden');
+    finishDrawBtn.classList.add('hidden');
+    cancelDrawBtn.classList.add('hidden');
     canvas.style.pointerEvents = 'none';
-    sheet.classList.add('hidden');
   }
 
-  cancelBtn.onclick = () => exits();
-  finishBtn.onclick = () => {
-    if (!holds.length) return alert('Place at least one hold.');
-    exits();
-    sheet.classList.remove('hidden');
+  cancelDrawBtn.onclick = () => {
+    holds=[]; redraw();
+    exitPlacementMode();
+  };
+  finishDrawBtn.onclick = () => {
+    if (!holds.length) return alert('⚠️ Place at least one hold.');
+    exitPlacementMode();
+    problemSheet.classList.add('visible');
   };
 
-  // ── Hold-type palette ─────────────────────────
+  // ── Hold palette ─────────────────────────────
   holdBtns.forEach(b => {
     b.onclick = () => {
       mode = b.dataset.type;
       holdBtns.forEach(x => x.classList.toggle('active', x===b));
-      canvas.style.cursor = mode==='delete' ? 'not-allowed' : 'crosshair';
+      canvas.style.cursor = mode==='delete'?'not-allowed':'crosshair';
     };
   });
 
-  // ── Place/Delete circles ──────────────────────
+  // ── Place / Delete circles ────────────────────
   canvas.onclick = e => {
     if (!boardMain.classList.contains('editing')) return;
     const r     = canvas.getBoundingClientRect();
-    const x     = (e.clientX - r.left ) * (canvas.width  / r.width);
-    const y     = (e.clientY - r.top  ) * (canvas.height / r.height);
-    const scale = canvas.width / canvas.clientWidth;
-
+    const x     = (e.clientX - r.left)*(canvas.width/r.width);
+    const y     = (e.clientY - r.top )*(canvas.height/r.height);
+    const scale = canvas.width/canvas.clientWidth;
     if (mode==='delete') {
       let idx=-1, best=(12*scale)**2;
-      holds.forEach((h,i) => {
-        const dx = x - h.xRatio*canvas.width;
-        const dy = y - h.yRatio*canvas.height;
-        const d2 = dx*dx + dy*dy;
-        if (d2<best) { best=d2; idx=i; }
+      holds.forEach((h,i)=>{
+        const dx=x-h.xRatio*canvas.width,
+              dy=y-h.yRatio*canvas.height,
+              d2=dx*dx+dy*dy;
+        if (d2<best){ best=d2; idx=i; }
       });
       if (idx>=0) holds.splice(idx,1);
     } else {
@@ -286,20 +311,21 @@ window.addEventListener('DOMContentLoaded', () => {
     redraw();
   };
 
-  // ── Redraw all circles ─────────────────────────
+  // ── Redraw ────────────────────────────────────
   function redraw() {
     if (!ctx) return;
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const scale = canvas.width / canvas.clientWidth;
+    const scale = canvas.width/canvas.clientWidth;
     holds.forEach(h => {
-      const cx = h.xRatio*canvas.width, cy = h.yRatio*canvas.height;
+      const cx = h.xRatio*canvas.width,
+            cy = h.yRatio*canvas.height;
       ctx.beginPath();
-      ctx.arc(cx, cy, DOT_R*scale, 0, 2*Math.PI);
-      ctx.lineWidth   = DOT_W*scale;
+      ctx.arc(cx,cy,DOT_RADIUS*scale,0,2*Math.PI);
+      ctx.lineWidth   = DOT_WIDTH*scale;
       ctx.fillStyle   = 'transparent';
       ctx.strokeStyle = (
         h.type==='start'? getComputedStyle(document.documentElement).getPropertyValue('--start-c') :
-        h.type==='hold' ? getComputedStyle(document.documentElement).getPropertyValue('--hold-c')  :
+        h.type==='hold' ? getComputedStyle(document.documentElement).getPropertyValue('--hold-c') :
                            getComputedStyle(document.documentElement).getPropertyValue('--finish-c')
       ).trim();
       ctx.fill();
@@ -307,37 +333,43 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ── Sheet “Cancel” / “Save” ───────────────────
-  cancelSheetBtn.onclick = () => sheet.classList.add('hidden');
-  saveSheetBtn.onclick   = async () => {
-    const nm = pNameInput.value.trim();
-    if (!nm) return alert('Name is required.');
+  // ── Bottom sheet Cancel/Save ─────────────────
+  cancelSheetBtn.onclick = () => {
+    problemSheet.classList.remove('visible');
+    exitPlacementMode();
+  };
+
+  saveProblemBtn.onclick = async () => {
+    const nm = problemName.value.trim();
+    if (!nm) return alert('⚠️ Name is required.');
+    const u = auth.currentUser;
+    if (!u || u.isAnonymous) {
+      return alert('⚠️ You must be signed in to save.');
+    }
     try {
       if (problemSelect.value) {
-        // update
+        // update existing
         await updateDoc(doc(db,'problems',problemSelect.value), {
-          name:nm,
-          description: pDescInput.value.trim(),
+          name: nm,
+          description: problemDesc.value.trim(),
           holds
         });
       } else {
-        // create
+        // create new
         await addDoc(collection(db,'problems'), {
           boardId,
-          name:nm,
-          description: pDescInput.value.trim(),
+          name: nm,
+          description: problemDesc.value.trim(),
           holds,
-          ownerUid: auth.currentUser.uid,
+          ownerUid: u.uid,
           createdAt: serverTimestamp()
         });
       }
       alert('✅ Saved!');
-      sheet.classList.add('hidden');
-      await loadProblems(boardId);
-      exits();
+      problemSheet.classList.remove('visible');
+      loadProblems(boardId);
     } catch(e) {
       alert(`❌ ${e.message}`);
     }
   };
-
 });
