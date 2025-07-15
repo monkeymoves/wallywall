@@ -28,20 +28,15 @@ import {
   getDownloadURL
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
+// Import emulator functions
+// Note: These should only be used in development, not in production.
+import { connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+import { auth, db, storage } from './firebase/firebaseConfig.js'; 
+import { initAuth } from './firebase/auth.js';
 window.addEventListener('DOMContentLoaded', () => {
-  // ── Firebase init ─────────────────────────────
-  initializeApp({
-    apiKey: "AIzaSyAA-PKUvVk4DnCMlYbMPNR6Zd3lBtbrBGE",
-    authDomain: "wallywall-18303.firebaseapp.com",
-    projectId: "wallywall-18303",
-    storageBucket: "wallywall-18303.firebasestorage.app",
-    messagingSenderId: "699677979638",
-    appId: "1:699677979638:web:ecec0b42369c55fffdcdd7",
-    measurementId: "G-5KRL7X1N81"
-  });
-  const auth    = getAuth();
-  const db      = getFirestore();
-  const storage = getStorage();
+
 
   // ── DOM refs ────────────────────────────────────
   const by               = id => document.getElementById(id);
@@ -72,10 +67,22 @@ window.addEventListener('DOMContentLoaded', () => {
   const problemDesc      = by('problemDesc');
   const holdBtns         = Array.from(document.querySelectorAll('.hold-btn'));
 
+
   // ── Drawing constants ──────────────────────────
   const DOT_RADIUS = 10;
   const DOT_WIDTH  = 3;
 
+  //import auth from './firebase/auth.js';    
+  initAuth({
+      loginBtn,
+      signOutBtn,
+      authPanel,
+      emailInput,
+      passwordInput,
+      newProblemBtn,
+      editProblemBtn,
+      problemSelect
+    });
   // ── App state ──────────────────────────────────
   let ctx, boardId, holds = [], mode = 'start';
 
@@ -91,42 +98,7 @@ window.addEventListener('DOMContentLoaded', () => {
   newProblemBtn.classList.remove('fab');
   newProblemBtn.classList.add('hdr-btn');
 
-  // ── AUTH UI ────────────────────────────────────
-  function updateAuthUI(user) {
-    const loggedIn = !!user && !user.isAnonymous;
-    newProblemBtn.classList.toggle('hidden', !loggedIn);
-    editProblemBtn .classList.toggle('hidden', !(loggedIn && !!problemSelect.value));
-
-    if (!loggedIn) {
-      authPanel.querySelector('h3')?.remove();
-      loginBtn.classList.remove('hidden');
-      signOutBtn.classList.add('hidden');
-    } else {
-      loginBtn .classList.add('hidden');
-      signOutBtn.classList.remove('hidden');
-      authPanel.querySelector('h3')?.remove();
-      const h = document.createElement('h3');
-      h.textContent = `Signed in: ${user.email}`;
-      authPanel.prepend(h);
-    }
-  }
-  onAuthStateChanged(auth, u => updateAuthUI(u));
-
-  loginBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    const pass  = passwordInput.value;
-    if (!email||!pass) return alert('Enter email & password.');
-    try {
-      await signInWithEmailAndPassword(auth,email,pass);
-    } catch(e) {
-      if (e.code==='auth/user-not-found') {
-        await createUserWithEmailAndPassword(auth,email,pass);
-      } else {
-        alert(`❌ ${e.message}`);
-      }
-    }
-  };
-  signOutBtn.onclick = () => signOut(auth);
+  
 
   // ── Toggle sidebar ────────────────────────────
   menuBtn.onclick = () => boardsPanel.classList.toggle('open');
