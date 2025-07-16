@@ -27,13 +27,14 @@ import {
   uploadBytes,
   getDownloadURL
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
+import { saveProblem, getProblems, subscribeToProblems, updateProblem, deleteProblem, getProblemsByBoardId } from './firestore.js';
 
 // Import emulator functions
 // Note: These should only be used in development, not in production.
 import { connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import { connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 import { connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
-import { auth, db, storage } from './firebase/firebaseConfig.js'; 
+import { auth, db, storage } from './firebase/firebaseConfig.mjs';
 import { initAuth } from './firebase/auth.js';
 window.addEventListener('DOMContentLoaded', () => {
 
@@ -158,20 +159,20 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── Populate problem dropdown ─────────────────
-  async function loadProblems(bid) {
-    problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
-    const snap = await getDocs(
-      query(collection(db,'problems'),where('boardId','==',bid))
-    );
-    snap.docs
-      .map(d=>({id:d.id,...d.data()}))
-      .sort((a,b)=>(b.createdAt?.toMillis()||0)-(a.createdAt?.toMillis()||0))
-      .forEach(p=>{
-        const o=document.createElement('option');
-        o.value=p.id; o.textContent=p.name;
-        problemSelect.append(o);
-      });
-  }
+
+async function loadProblems(bid) {
+  problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
+  const problems = await getProblemsByBoardId(bid);
+
+  problems
+    .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+    .forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.name;
+      problemSelect.append(o);
+    });
+}
 
   // ── Select / New / Edit ───────────────────────
   problemSelect.onchange = async () => {

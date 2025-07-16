@@ -1,6 +1,6 @@
 // /public/firebase/auth.js
 
-import { auth } from './firebaseConfig.js';
+import { auth } from './firebaseConfig.mjs';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
