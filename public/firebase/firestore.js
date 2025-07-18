@@ -1,5 +1,5 @@
 // public/firestore.js
-import { db } from './firebase/firebaseConfig.mjs';
+import { db } from './firebaseConfig.mjs';
 import { collection, addDoc, getDocs, onSnapshot, updateDoc, deleteDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 
 const problemsCollection = collection(db, 'problems');
