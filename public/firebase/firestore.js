@@ -1,39 +1,82 @@
-// public/firestore.js
+// public/firebase/firestore.js
+
 import { db } from './firebaseConfig.mjs';
-import { collection, addDoc, getDocs, onSnapshot, updateDoc, deleteDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  setDoc
+} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 
-const problemsCollection = collection(db, 'problems');
-
-export async function saveProblem(problem) {
-  const docRef = await addDoc(problemsCollection, problem);
-  return docRef.id;
+// --- Helpers for nested collections ---
+/**
+ * Get the 'problems' sub-collection for a specific board
+ * @param {string} boardId
+ */
+export function problemsCol(boardId) {
+  return collection(db, `boards/${boardId}/problems`);
 }
 
-export async function getProblems() {
-  const snapshot = await getDocs(problemsCollection);
+// --- Problem CRUD operations ---
+/**
+ * Fetch all problems for a given board, ordered by creation date
+ * @param {string} boardId
+ */
+export async function getProblemsByBoardId(boardId) {
+  const q = query(
+    problemsCol(boardId),
+    orderBy('createdAt', 'desc')
+  );
+  const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-export function subscribeToProblems(callback) {
-  return onSnapshot(problemsCollection, snapshot => {
-    const problems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(problems);
+/**
+ * Add a new problem under the specified board
+ * @param {string} boardId
+ * @param {object} problem  Fields: title, color, holds, status
+ */
+export function addProblem(boardId, problem) {
+  return addDoc(problemsCol(boardId), {
+    ...problem,
+    createdAt: serverTimestamp(),
   });
 }
 
-export async function updateProblem(id, updatedFields) {
-  const docRef = doc(db, 'problems', id);
-  await updateDoc(docRef, updatedFields);
+/**
+ * Update an existing problem
+ * @param {string} boardId
+ * @param {string} problemId
+ * @param {object} updates  Fields to update
+ */
+export function updateProblem(boardId, problemId, updates) {
+  const ref = doc(db, `boards/${boardId}/problems/${problemId}`);
+  return updateDoc(ref, updates);
 }
 
-export async function deleteProblem(id) {
-  const docRef = doc(db, 'problems', id);
-  await deleteDoc(docRef);
+/**
+ * Delete a problem
+ * @param {string} boardId
+ * @param {string} problemId
+ */
+export function deleteProblem(boardId, problemId) {
+  const ref = doc(db, `boards/${boardId}/problems/${problemId}`);
+  return deleteDoc(ref);
 }
 
-
-export async function getProblemsByBoardId(boardId) {
-  const q = query(problemsCollection, where('boardId', '==', boardId));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+/**
+ * Creates a new access code for a board.
+ * @param {string} boardId
+ * @param {string} code The generated code.
+ * @param {'read'|'edit'} level The access level for the code.
+ */
+export function addAccessCode(boardId, code, level) {
+  const accessCodeRef = doc(db, 'accessCodes', code);
+  return setDoc(accessCodeRef, { boardId, level });
 }

@@ -2,37 +2,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ── Top-level boards collection ─────────────────────────────────────────────
-    match /boards/{boardId} {
-      // Public read
-      allow read: if true;
-      // Only authenticated users may create
-      allow create: if request.auth != null;
-      // Only the owner may update or delete
-      allow update, delete:
-        if request.auth != null
-        && request.auth.uid == resource.data.ownerUid;
-
-      // ── Problems sub-collection under each board ────────────────────────────────
-      match /problems/{problemId} {
-        allow read: if true;
-        allow create: if request.auth != null;
-        allow update, delete:
-          if request.auth != null
-          && request.auth.uid == resource.data.ownerUid;
-      }
+    // Helper function to check for guest edit access
+    function hasEditAccess(boardId) {
+      let code = request.resource.data.guestCode;
+      return code != null &&
+             exists(/databases/$(database)/documents/accessCodes/$(code)) &&
+             get(/databases/$(database)/documents/accessCodes/$(code)).data.boardId == boardId &&
+             get(/databases/$(database)/documents/accessCodes/$(code)).data.level == 'edit';
     }
 
-    // ── Top-level problems collection ────────────────────────────────────────────
-    match /problems/{problemId} {
-      // Public read
+    match /accessCodes/{code} {
+      // Allow guests to read a code to log in.
+      allow get: if true;
+      // Allow board owners to create new codes.
+      allow create: if request.auth.uid == get(/databases/$(database)/documents/boards/$(request.resource.data.boardId)).data.ownerUid;
+      allow list, update, delete: if false;
+    }
+
+    match /boards/{boardId} {
       allow read: if true;
-      // Any signed-in user (including anonymous) can create
       allow create: if request.auth != null;
-      // Only the ownerUid on the doc may update or delete
       allow update, delete:
         if request.auth != null
         && request.auth.uid == resource.data.ownerUid;
+
+      match /problems/{problemId} {
+        allow read: if true;
+        allow create: if request.auth != null || hasEditAccess(boardId);
+        allow update: if (request.auth.uid == resource.data.ownerUid) || hasEditAccess(boardId);
+
+        // Note: Guest delete is not supported by this rule as it would require
+        // passing the guest code, which is not possible with a standard delete.
+        allow delete: if request.auth.uid == resource.data.ownerUid;
+      }
     }
   }
 }

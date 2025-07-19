@@ -12,9 +12,14 @@ export const DOM = {
   boardsList: by('boardsList'),
   authPanel: by('authPanel'),
   emailInput: by('emailInput'),
+  authDescription: by('auth-description'),
   passwordInput: by('passwordInput'),
   loginBtn: by('loginBtn'),
   signOutBtn: by('signOutBtn'),
+  uploadControls: by('upload-controls'),
+  boardOwnerControls: by('board-owner-controls'),
+  generateReadCodeBtn: by('generate-read-code'),
+  generateEditCodeBtn: by('generate-edit-code'),
   hdrTitle: document.querySelector('.hdr-title'),
   boardMain: by('boardMain'),
   currentBoard: by('currentBoard'),
@@ -30,5 +35,7 @@ export const DOM = {
   saveProblemBtn: by('saveProblemBtn'),
   problemName: by('problemName'),
   problemDesc: by('problemDesc'),
-  holdBtns: Array.from(document.querySelectorAll('.hold-btn'))
+  problemGrade: by('problemGrade'),
+  holdBtns: Array.from(document.querySelectorAll('.hold-btn')),
+  guestCodeBtn: by('enter-guest-code')
 };

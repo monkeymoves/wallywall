@@ -1,43 +1,9 @@
 // /public/firebase/auth.js
 
 import { auth } from './firebaseConfig.mjs';
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut
-} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 
-function initAuth({
-  loginBtn,
-  signOutBtn,
-  authPanel,
-  emailInput,
-  passwordInput,
-  newProblemBtn,
-  editProblemBtn,
-  problemSelect
-}) {
-  function updateAuthUI(user) {
-    const loggedIn = !!user && !user.isAnonymous;
-    newProblemBtn.classList.toggle('hidden', !loggedIn);
-    editProblemBtn.classList.toggle('hidden', !(loggedIn && !!problemSelect.value));
-
-    if (!loggedIn) {
-      authPanel.querySelector('h3')?.remove();
-      loginBtn.classList.remove('hidden');
-      signOutBtn.classList.add('hidden');
-    } else {
-      loginBtn.classList.add('hidden');
-      signOutBtn.classList.remove('hidden');
-      authPanel.querySelector('h3')?.remove();
-      const h = document.createElement('h3');
-      h.textContent = `Signed in: ${user.email}`;
-      authPanel.prepend(h);
-    }
-  }
-
-  onAuthStateChanged(auth, u => updateAuthUI(u));
+function initAuth({ loginBtn, signOutBtn, emailInput, passwordInput }) {
 
   loginBtn.onclick = async () => {
     const email = emailInput.value.trim();
@@ -46,10 +12,20 @@ function initAuth({
     try {
       await signInWithEmailAndPassword(auth, email, pass);
     } catch (e) {
-      if (e.code === 'auth/user-not-found') {
-        await createUserWithEmailAndPassword(auth, email, pass);
-      } else {
-        alert(`❌ ${e.message}`);
+      switch (e.code) {
+        case 'auth/user-not-found':
+          // If user not found, try to create a new account
+          try {
+            await createUserWithEmailAndPassword(auth, email, pass);
+          } catch (creationError) {
+            alert(`❌ Account creation failed: ${creationError.message}`);
+          }
+          break;
+        case 'auth/invalid-email':
+          alert('❌ Please enter a valid email address (e.g., user@example.com).');
+          break;
+        default:
+          alert(`❌ Login failed: ${e.message}`);
       }
     }
   };

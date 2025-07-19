@@ -41,19 +41,31 @@
     <!-- email/password login UI -->
     <div id="authPanel" class="auth-panel">
       <h3 id="authStatus"></h3>
+      <p id="auth-description">Log in or create an account to save boards.</p>
       <input  id="emailInput"    type="email"    placeholder="Email" />
       <input  id="passwordInput" type="password" placeholder="Password" />
-      <button id="loginBtn">Log in </button>
+      <button id="loginBtn">Log In / Sign Up</button>
       <button id="signOutBtn" class="hidden">Sign Out</button>
     </div>
     
-    <div id="boardPanel" class="board-panel">
-      <h3 id="boardStatus">Upload your board</h3>
-
-    <input id="file" type="file" />
-    <p id="fileStatus"></p>
+    <div class="board-panel">
+      <div id="upload-controls" class="hidden">
+        <h3>Upload your board</h3>
+        <input id="file" type="file" />
+        <p id="fileStatus"></p>
+      </div>
     <ul id="boardsList"></ul>
+    <div id="board-owner-controls" class="hidden">
+      <h4>Board Owner</h4>
+      <button id="generate-read-code" class="btn">Generate Read Code</button>
+      <button id="generate-edit-code" class="btn">Generate Edit Code</button>
     </div>
+    </div>
+
+        <!-- somewhere alongside your "My Boards" header or list -->
+    <button id="enter-guest-code" class="btn">
+      Load Board from Code
+    </button>
   </aside>
 
   <!-- BOARD + OVERLAY -->
@@ -70,6 +82,20 @@
     <div class="sheet-body">
       <input    id="problemName" placeholder="Problem name" />
       <textarea id="problemDesc" placeholder="Description (optional)"></textarea>
+      <select id="problemGrade">
+        <option value="">— Select Grade —</option>
+        <option>V0</option>
+        <option>V1</option>
+        <option>V2</option>
+        <option>V3</option>
+        <option>V4</option>
+        <option>V5</option>
+        <option>V6</option>
+        <option>V7</option>
+        <option>V8</option>
+        <option>V9</option>
+        <option>V10+</option>
+      </select>
       <div class="sheet-actions">
         <button id="cancelSheetBtn">Cancel</button>
         <button id="saveProblemBtn" class="primary">Save</button>
