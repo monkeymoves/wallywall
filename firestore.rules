@@ -55,7 +55,8 @@ service cloud.firestore {
 
       // A user can only LIST boards that they own. This works because the
       // client-side query is constrained with `where('ownerUid', '==', request.auth.uid)`.
-      allow list: if request.auth != null;
+      // This rule is evaluated for every document, ensuring the query is secure.
+      allow list: if request.auth.uid == resource.data.ownerUid;
 
       function isOwner() {
         return request.auth.uid == get(/databases/$(database)/documents/boards/$(boardId)).data.ownerUid;

@@ -117,7 +117,10 @@ export async function shareBoardWithUser(boardId, boardName, userUid, userEmail,
   batch.set(permRef, permData);
 
   // Data for the user's sharedBoards subcollection
-  const sharedBoardData = { boardName, boardId, sharedAt: serverTimestamp() };
+  const sharedBoardData = { boardId, sharedAt: serverTimestamp() };
+  if (boardName) {
+    sharedBoardData.boardName = boardName;
+  }
   if (guestCode) {
     sharedBoardData.guestCode = guestCode; // Pass guest code for rule validation
   }

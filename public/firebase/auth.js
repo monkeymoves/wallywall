@@ -1,38 +1,37 @@
-// /public/firebase/auth.js
-
-import { createUserRecord } from './firestore.js';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 import { auth } from './firebaseConfig.mjs';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 
-function initAuth({ loginBtn, signOutBtn, emailInput, passwordInput }) {
-
+/**
+ * Initializes the authentication UI and logic.
+ * @param {object} elements - The DOM elements for auth.
+ * @param {HTMLButtonElement} elements.loginBtn
+ * @param {HTMLButtonElement} elements.signOutBtn
+ * @param {HTMLInputElement} elements.emailInput
+ * @param {HTMLInputElement} elements.passwordInput
+ */
+export function initAuth({ loginBtn, signOutBtn, emailInput, passwordInput }) {
   loginBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    const pass  = passwordInput.value;
-    if (!email || !pass) return alert('Enter email & password.');
+    const email = emailInput.value;
+    const password = passwordInput.value;
+
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (e) {
-      switch (e.code) {
-        case 'auth/user-not-found':
-          // If user not found, try to create a new account
-          try {
-            const cred = await createUserWithEmailAndPassword(auth, email, pass);
-            await createUserRecord(cred.user.uid, cred.user.email);
-          } catch (creationError) {
-            alert(`❌ Account creation failed: ${creationError.message}`);
-          }
-          break;
-        case 'auth/invalid-email':
-          alert('❌ Please enter a valid email address (e.g., user@example.com).');
-          break;
-        default:
-          alert(`❌ Login failed: ${e.message}`);
+      // First, try to sign in.
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      // If sign-in fails because the user doesn't exist, try to sign them up.
+      if (error.code === 'auth/invalid-login-credentials' || error.code === 'auth/user-not-found') {
+        await createUserWithEmailAndPassword(auth, email, password).catch(signupError => {
+          alert(`❌ Sign up failed: ${signupError.message}`);
+        });
+      } else {
+        alert(`❌ Login failed: ${error.message}`);
       }
     }
   };
 
   signOutBtn.onclick = () => signOut(auth);
 }
-
-export { initAuth };
