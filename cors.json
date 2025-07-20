@@ -2,7 +2,10 @@
   {
     "origin": [
       "https://wallywall-18303.web.app",
-      "http://localhost:5000"
+      "https://wallywall-18303.firebaseapp.com",
+      "http://localhost:5000",
+      "https://wallywall-18303--feat-guest-access-refactor-romnvs8i.web.app",
+      "https://wallywall-18303--feat-guest-access-refactor-romnvs8i.firebaseapp.com"
     ],
     "method": [
       "GET",
@@ -11,9 +14,12 @@
       "POST",
       "DELETE",
       "OPTIONS"
-
     ],
-    "responseHeader": ["Content-Type", "x-goog-resumable"],
+    "responseHeader": [
+      "Content-Type",
+      "x-goog-resumable",
+      "Access-Control-Allow-Origin"
+    ],
     "maxAgeSeconds": 3600
   }
 ]
