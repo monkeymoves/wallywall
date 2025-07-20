@@ -41,7 +41,7 @@
   <!-- BOARDS SIDEBAR + AUTH PANEL -->
   <aside id="boardsPanel" class="boards-panel">
     <div class="sidebar-section">
-      <h3>Account</h3>
+      <h3 id="account-title">Account</h3>
       <!-- email/password login UI -->
       <div id="authPanel" class="auth-panel">
         <h3 id="authStatus"></h3>
@@ -57,7 +57,7 @@
     </div>
 
     <div class="sidebar-section">
-      <h3>Boards</h3>
+      <h3 id="boards-title">Boards</h3>
       <div class="board-panel">
         <div id="upload-controls" class="hidden">
           <h4>Upload your board</h4>
@@ -70,13 +70,14 @@
       </div>
     </div>
     <div id="board-owner-controls" class="sidebar-section hidden">
-      <h3>Board Owner</h3>
+      <h3 id="board-owner-title">Board Owner</h3>
       <div class="owner-controls-group">
         <h4>Guest Access</h4>
         <button id="generate-read-code" class="btn">Generate Read Code</button>
         <button id="generate-edit-code" class="btn">Generate Edit Code</button>
       </div>
       <div id="user-access-controls" class="owner-controls-group hidden">
+        <h4>Shared Users</h4>
         <ul id="shared-users-list"></ul>
       </div>
     </div>

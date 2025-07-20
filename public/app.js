@@ -463,7 +463,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }
       snapshot.forEach(doc => {
         const li = document.createElement('li');
-        li.textContent = doc.data().email;
+        const emailSpan = document.createElement('span');
+        emailSpan.textContent = doc.data().email;
+
         const revokeBtn = document.createElement('button');
         revokeBtn.textContent = 'Revoke';
         revokeBtn.onclick = async () => {
@@ -471,7 +473,8 @@ window.addEventListener('DOMContentLoaded', () => {
             await revokeAccess(boardId, doc.id);
           }
         };
-        li.append(revokeBtn);
+
+        li.append(emailSpan, revokeBtn);
         sharedUsersList.append(li);
       });
     });
