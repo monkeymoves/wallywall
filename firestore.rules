@@ -22,7 +22,9 @@ service cloud.firestore {
       // Allow guests to read a code to log in.
       allow get: if true;
       // Allow board owners to create new codes.
-      allow create: if request.auth.uid == get(/databases/$(database)/documents/boards/$(request.resource.data.boardId)).data.ownerUid;
+      allow create: if request.auth != null &&
+             exists(/databases/$(database)/documents/boards/$(request.resource.data.boardId)) &&
+             get(/databases/$(database)/documents/boards/$(request.resource.data.boardId)).data.ownerUid == request.auth.uid;
       allow list, update, delete: if false;
     }
 

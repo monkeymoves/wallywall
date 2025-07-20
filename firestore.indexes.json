@@ -4,8 +4,8 @@
       "collectionGroup": "boards",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "owner",     "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        { "fieldPath": "ownerUid",  "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
   ],
