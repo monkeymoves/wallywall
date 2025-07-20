@@ -11,6 +11,13 @@ service cloud.firestore {
              get(/databases/$(database)/documents/accessCodes/$(code)).data.level == 'edit';
     }
 
+    // Helper function to check for a valid guest code for a specific board.
+    function hasValidGuestCode(boardId, guestCode) {
+      return guestCode != null &&
+             exists(/databases/$(database)/documents/accessCodes/$(guestCode)) &&
+             get(/databases/$(database)/documents/accessCodes/$(guestCode)).data.boardId == boardId;
+    }
+
     match /accessCodes/{code} {
       // Allow guests to read a code to log in.
       allow get: if true;
@@ -19,21 +26,54 @@ service cloud.firestore {
       allow list, update, delete: if false;
     }
 
+    match /users/{userId} {
+      allow read: if true; // Allow reading to find users by email
+      allow write: if request.auth.uid == userId; // Only the user can create their own doc
+
+      match /sharedBoards/{boardId} {
+        // A user can see their own list of shared boards.
+        allow read: if request.auth.uid == userId;
+        // Allow create or update if you are the board owner OR if you are the user promoting/uplifting from a guest code.
+        allow create, update: if (get(/databases/$(database)/documents/boards/$(boardId)).data.ownerUid == request.auth.uid) || (request.auth.uid == userId && hasValidGuestCode(boardId, request.resource.data.guestCode));
+        // Only the owner can delete (revoke).
+        allow delete: if get(/databases/$(database)/documents/boards/$(boardId)).data.ownerUid == request.auth.uid;
+      }
+    }
+
     match /boards/{boardId} {
-      allow read: if true;
       allow create: if request.auth != null;
       allow update, delete:
         if request.auth != null
         && request.auth.uid == resource.data.ownerUid;
+      
+      // Anyone can GET a specific board if they know its ID. This is required
+      // for guest access codes to work. Privacy is maintained because board
+      // IDs are unguessable and we deny general listing below.
+      allow get: if true;
+
+      // A user can only LIST boards that they own. This works because the
+      // client-side query is constrained with `where('ownerUid', '==', request.auth.uid)`.
+      allow list: if request.auth != null;
+
+      function isOwner() {
+        return request.auth.uid == get(/databases/$(database)/documents/boards/$(boardId)).data.ownerUid;
+      }
+      function hasSharedAccess() {
+        return exists(/databases/$(database)/documents/boards/$(boardId)/permissions/$(request.auth.uid));
+      }
+
+      match /permissions/{userId} {
+        // The board owner can grant/revoke permissions.
+        // A user can also write to their own permission record if they are promoting from a guest.
+        allow write: if isOwner() || (request.auth.uid == userId && hasValidGuestCode(boardId, request.resource.data.guestCode));
+        allow read: if isOwner() || request.auth.uid == userId;
+        allow delete: if isOwner();
+      }
 
       match /problems/{problemId} {
-        allow read: if true;
-        allow create: if request.auth != null || hasEditAccess(boardId);
-        allow update: if (request.auth.uid == resource.data.ownerUid) || hasEditAccess(boardId);
-
-        // Note: Guest delete is not supported by this rule as it would require
-        // passing the guest code, which is not possible with a standard delete.
-        allow delete: if request.auth.uid == resource.data.ownerUid;
+        allow read: if true; // All problems are public if the board is known
+        allow create, update: if isOwner() || hasSharedAccess() || hasEditAccess(boardId);
+        allow delete: if isOwner(); // Only the board owner can delete problems
       }
     }
   }

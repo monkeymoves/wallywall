@@ -4,10 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wally-Wall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="./app.js" defer></script>
 </head>
-<body>
+<body class="dark-theme">
 
   <!-- NAV BAR -->
   <header class="hdr">
@@ -22,6 +25,7 @@
 
     <!-- edit existing -->
     <button id="editProblemBtn" class="hdr-btn hidden" aria-label="Edit problem">✎</button>
+    <button id="deleteProblemBtn" class="hdr-btn hidden" aria-label="Delete problem">🗑️</button>
 
     <!-- draw-mode controls -->
     <div id="drawControls" class="hdr-control draw-toolbar hidden">
@@ -36,44 +40,59 @@
 
   <!-- BOARDS SIDEBAR + AUTH PANEL -->
   <aside id="boardsPanel" class="boards-panel">
-    <h2>Your Boards</h2>
-
-    <!-- email/password login UI -->
-    <div id="authPanel" class="auth-panel">
-      <h3 id="authStatus"></h3>
-      <p id="auth-description">Log in or create an account to save boards.</p>
-      <input  id="emailInput"    type="email"    placeholder="Email" />
-      <input  id="passwordInput" type="password" placeholder="Password" />
-      <button id="loginBtn">Log In / Sign Up</button>
-      <button id="signOutBtn" class="hidden">Sign Out</button>
-    </div>
-    
-    <div class="board-panel">
-      <div id="upload-controls" class="hidden">
-        <h3>Upload your board</h3>
-        <input id="file" type="file" />
-        <p id="fileStatus"></p>
+    <div class="sidebar-section">
+      <h3>Account</h3>
+      <!-- email/password login UI -->
+      <div id="authPanel" class="auth-panel">
+        <h3 id="authStatus"></h3>
+        <p id="auth-description">Log in or create an account to save boards.</p>
+        <input  id="emailInput"    type="email"    placeholder="Email" />
+        <input  id="passwordInput" type="password" placeholder="Password" />
+        <button id="loginBtn">Log In / Sign Up</button>
+        <button id="signOutBtn" class="hidden">Sign Out</button>
       </div>
-    <ul id="boardsList"></ul>
-    <div id="board-owner-controls" class="hidden">
-      <h4>Board Owner</h4>
-      <button id="generate-read-code" class="btn">Generate Read Code</button>
-      <button id="generate-edit-code" class="btn">Generate Edit Code</button>
-    </div>
+      <button id="enter-guest-code" class="btn">
+        Use Guest Code
+      </button>
     </div>
 
-        <!-- somewhere alongside your "My Boards" header or list -->
-    <button id="enter-guest-code" class="btn">
-      Load Board from Code
-    </button>
+    <div class="sidebar-section">
+      <h3>Boards</h3>
+      <div class="board-panel">
+        <div id="upload-controls" class="hidden">
+          <h4>Upload your board</h4>
+          <!-- Style the label as a button, and hide the default input -->
+          <label for="file" class="btn">Choose File</label>
+          <input id="file" type="file" class="file-upload-input" />
+          <p id="fileStatus"></p>
+        </div>
+        <div id="boardsList"></div>
+      </div>
+    </div>
+    <div id="board-owner-controls" class="sidebar-section hidden">
+      <h3>Board Owner</h3>
+      <div class="owner-controls-group">
+        <h4>Guest Access</h4>
+        <button id="generate-read-code" class="btn">Generate Read Code</button>
+        <button id="generate-edit-code" class="btn">Generate Edit Code</button>
+      </div>
+      <div id="user-access-controls" class="owner-controls-group hidden">
+        <ul id="shared-users-list"></ul>
+      </div>
+    </div>
   </aside>
 
   <!-- BOARD + OVERLAY -->
   <main id="boardMain" class="board-main">
-    <div class="board-container">
-      <img    id="currentBoard" alt="Don't be fucking weak" />
+    <div id="welcomeMessage" class="welcome-message">
+      <h2>Welcome to WallyWall!</h2>
+      <p>To get started, open the menu (☰) to create an account and upload a board, or enter a guest code.</p>
+    </div>
+    <div class="board-container hidden">
+      <img    id="currentBoard" alt="Climbing board" />
       <canvas id="overlayCanvas"></canvas>
     </div>
+    <p id="problemDescription" class="problem-description hidden"></p>
   </main>
 
   <!-- BOTTOM SHEET FOR NAMING / SAVING -->

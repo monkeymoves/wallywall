@@ -1,5 +1,6 @@
 // /public/firebase/auth.js
 
+import { createUserRecord } from './firestore.js';
 import { auth } from './firebaseConfig.mjs';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 
@@ -16,7 +17,8 @@ function initAuth({ loginBtn, signOutBtn, emailInput, passwordInput }) {
         case 'auth/user-not-found':
           // If user not found, try to create a new account
           try {
-            await createUserWithEmailAndPassword(auth, email, pass);
+            const cred = await createUserWithEmailAndPassword(auth, email, pass);
+            await createUserRecord(cred.user.uid, cred.user.email);
           } catch (creationError) {
             alert(`❌ Account creation failed: ${creationError.message}`);
           }
