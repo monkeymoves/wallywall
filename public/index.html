@@ -92,7 +92,10 @@
       <img    id="currentBoard" alt="Climbing board" />
       <canvas id="overlayCanvas"></canvas>
     </div>
-    <p id="problemDescription" class="problem-description hidden"></p>
+    <div id="problemInfoCard" class="problem-info-card hidden">
+      <span id="problemGradeDisplay" class="problem-grade-badge"></span>
+      <p id="problemDescriptionText"></p>
+    </div>
   </main>
 
   <!-- BOTTOM SHEET FOR NAMING / SAVING -->
@@ -101,7 +104,7 @@
     <div class="sheet-body">
       <input    id="problemName" placeholder="Problem name" />
       <textarea id="problemDesc" placeholder="Description (optional)"></textarea>
-      <select id="problemGrade">
+      <select id="problemGrade" placeholder="Grade">
         <option value="">— Select Grade —</option>
         <option>V0</option>
         <option>V1</option>
@@ -113,7 +116,12 @@
         <option>V7</option>
         <option>V8</option>
         <option>V9</option>
-        <option>V10+</option>
+        <option>V10</option>
+        <option>V11</option>
+        <option>V12</option>
+        <option>V13</option>
+        <option>V14</option>
+        <option>V14+</option>
       </select>
       <div class="sheet-actions">
         <button id="cancelSheetBtn">Cancel</button>

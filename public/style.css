@@ -175,14 +175,6 @@ input, select, textarea {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.problem-description {
-  margin-top: 1rem;
-  padding: 1rem;
-  background-color: var(--bg-panel);
-  border-radius: var(--radius-md);
-  white-space: pre-wrap; /* Respect line breaks */
-}
-
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--border-focus);
@@ -339,6 +331,37 @@ textarea {
   display: none !important;
 }
 
+/* === Problem Info Card === */
+.problem-info-card {
+  margin-top: 1rem;
+  padding: 1rem 1.5rem;
+  background-color: var(--bg-panel);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.problem-grade-badge {
+  font-weight: 700;
+  color: var(--accent-primary);
+  background-color: rgba(59, 130, 246, 0.15);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+#problemDescriptionText {
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
 /* === Responsive Design for Mobile === */
 @media (max-width: 640px) {
   .hdr {
@@ -361,5 +384,11 @@ textarea {
     padding: 0.4rem;
     width: 36px;
     height: 36px;
+  }
+  .problem-info-card{
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
   }
 }

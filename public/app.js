@@ -58,10 +58,10 @@ window.addEventListener('DOMContentLoaded', () => {
     menuBtn, boardsPanel,
     fileInput, fileStatus,
     boardsList,
-    authPanel, emailInput, passwordInput, authDescription,
+    authPanel, emailInput, passwordInput, authDescription, manageUsersHeader,
     loginBtn, signOutBtn, uploadControls, userAccessControls, sharedUsersList,
     hdrTitle,
-    boardMain, welcomeMessage, boardContainer, currentBoard, canvas, problemDescription, deleteProblemBtn,
+    boardMain, welcomeMessage, boardContainer, currentBoard, canvas, problemInfoCard, problemGradeDisplay, problemDescriptionText, deleteProblemBtn,
     boardOwnerControls, generateReadCodeBtn, generateEditCodeBtn,
     problemSelect, newProblemBtn, editProblemBtn,
     drawControls, finishDrawBtn, cancelDrawBtn,
@@ -132,7 +132,7 @@ window.addEventListener('DOMContentLoaded', () => {
       // Reset view to welcome message
       welcomeMessage.classList.remove('hidden');
       boardContainer.classList.add('hidden');
-      problemDescription.classList.add('hidden');
+      problemInfoCard.classList.add('hidden');
       problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
       holds = [];
       redraw();
@@ -490,16 +490,15 @@ window.addEventListener('DOMContentLoaded', () => {
       const ds = await getDoc(doc(db, `boards/${boardId}/problems/${problemSelect.value}`));
       const problemData = ds.data();
       holds = problemData.holds || [];
-      problemDescription.textContent = problemData.description || '';
-      // Show the description card only if there is text for it
-      problemDescription.classList.toggle('hidden', !problemData.description);
+      problemGradeDisplay.textContent = problemData.grade || 'Ungraded';
+      problemDescriptionText.textContent = problemData.description || '';
+      problemInfoCard.classList.remove('hidden');
       redraw();
     } else {
       // The "Select a problem" placeholder was chosen, so clear any visible holds
       holds = [];
       // And hide the description
-      problemDescription.textContent = '';
-      problemDescription.classList.add('hidden');
+      problemInfoCard.classList.add('hidden');
       redraw();
     }
   };
@@ -561,9 +560,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
         // Clear the canvas and description immediately
         holds = [];
+        problemInfoCard.classList.add('hidden');
         redraw();
-        problemDescription.textContent = '';
-        problemDescription.classList.add('hidden');
 
         // Reload the problem list to reflect the deletion
         await loadProblems(boardId);
@@ -694,9 +692,9 @@ window.addEventListener('DOMContentLoaded', () => {
       // Reset state
       isEditingExistingProblem = false;
       problemSelect.value = ''; // Clear selection
+      problemInfoCard.classList.add('hidden');
       holds = [];
       redraw();
-      problemDescription.classList.add('hidden');
     } catch(e) {
       alert(`❌ ${e.message}`);
     } finally {
