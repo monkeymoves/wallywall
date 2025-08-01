@@ -12,12 +12,16 @@
       "HEAD",
       "PUT",
       "POST",
-      "DELETE",
-      "OPTIONS"
+      "DELETE"
     ],
-    "header": [
+    "responseHeader": [
       "Content-Type",
-      "x-goog-resumable"
+      "Authorization",
+      "X-Goog-Resumable",
+      "X-Goog-Upload-Protocol",
+      "X-Goog-Upload-Command",
+      "X-Goog-Upload-Header",
+      "X-Goog-Upload-Offset"
     ],
     "maxAgeSeconds": 3600
   }

@@ -17,7 +17,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAA-PKUvVk4DnCMlYbMPNR6Zd3lBtbrBGE",
   authDomain: "wallywall-18303.firebaseapp.com",
   projectId: "wallywall-18303",
-  storageBucket: "wallywall-18303.appspot.com",
+  storageBucket: "wallywall-18303.firebasestorage.app",
   messagingSenderId: "699677979638",
   appId: "1:699677979638:web:ecec0b42369c55fffdcdd7",
   measurementId: "G-5KRL7X1N81"
