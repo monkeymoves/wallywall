@@ -1,11 +1,11 @@
 // public/app.js
 
-import { connectAuthEmulator, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 import {
-  connectFirestoreEmulator, collection, onSnapshot, query, orderBy,
+  collection, onSnapshot, query, orderBy,
   addDoc, serverTimestamp, getDoc, doc
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
-import { connectStorageEmulator, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
 import { auth, db, storage } from './firebase/firebaseConfig.mjs';
 import { initAuth } from './firebase/auth.js';
@@ -114,11 +114,13 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /*
   if (location.hostname === 'localhost') {
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);
     connectStorageEmulator(storage, 'localhost', 9199);
   }
+  */
 
   drawControls.classList.add('hidden');
   finishDrawBtn.classList.add('hidden');
@@ -130,7 +132,42 @@ window.addEventListener('DOMContentLoaded', () => {
   newProblemBtn.classList.remove('fab');
   newProblemBtn.classList.add('hdr-btn');
 
-  menuBtn.onclick = () => boardsPanel.classList.toggle('open');
+  const backdrop = document.getElementById('panel-backdrop');
+
+function openPanel() {
+  boardsPanel.classList.add('open');
+  backdrop.classList.add('active');
+}
+
+function closePanel() {
+  if (!boardsPanel.classList.contains('open')) return;
+  boardsPanel.classList.remove('open');
+  backdrop.classList.remove('active');
+}
+
+function togglePanel() {
+  if (boardsPanel.classList.contains('open')) closePanel();
+  else openPanel();
+}
+
+menuBtn.onclick = togglePanel;
+
+// Click outside = close
+backdrop.addEventListener('click', closePanel);
+
+// Also close if you click anywhere that is NOT inside the panel or the hamburger
+document.addEventListener('pointerdown', (e) => {
+  if (!boardsPanel.classList.contains('open')) return;
+  const clickedInsidePanel = boardsPanel.contains(e.target);
+  const clickedMenuBtn     = menuBtn.contains(e.target);
+  if (!clickedInsidePanel && !clickedMenuBtn) closePanel();
+}, true); // capture to run before inner handlers
+
+// Esc to close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePanel();
+});
+
 
   fileInput.onchange = async () => {
     const u = currentUser;

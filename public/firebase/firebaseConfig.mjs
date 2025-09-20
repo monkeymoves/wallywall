@@ -1,17 +1,8 @@
 // /public/firebase/firebaseConfig.js
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
-import {
-  getAuth,
-  connectAuthEmulator
-} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
-import {
-  getFirestore,
-  connectFirestoreEmulator
-} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
-import {
-  getStorage,
-  connectStorageEmulator
-} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+import { getStorage } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAA-PKUvVk4DnCMlYbMPNR6Zd3lBtbrBGE",
@@ -30,12 +21,5 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
 const storage = getStorage();
-
-// Connect emulators locally
-if (location.hostname === 'localhost') {
-  connectAuthEmulator(auth, "http://localhost:9099");
-  connectFirestoreEmulator(db, "localhost", 8080);
-  connectStorageEmulator(storage, "localhost", 9199);
-}
 
 export { auth, db, storage };
