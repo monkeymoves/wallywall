@@ -155,6 +155,9 @@ menuBtn.onclick = togglePanel;
 // Click outside = close
 backdrop.addEventListener('click', closePanel);
 
+// Prevent clicks inside the panel from closing it
+boardsPanel.addEventListener('click', e => e.stopPropagation());
+
 // Also close if you click anywhere that is NOT inside the panel or the hamburger
 document.addEventListener('pointerdown', (e) => {
   if (!boardsPanel.classList.contains('open')) return;
