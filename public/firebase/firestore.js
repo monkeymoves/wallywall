@@ -130,9 +130,9 @@ export async function shareBoardWithUser(boardId, boardName, userUid, userEmail,
   return batch.commit();
 }
 
-export function listenForSharedUsers(boardId, callback) {
+export function listenForSharedUsers(boardId, callback, errorCallback) {
   const permsCol = collection(db, `boards/${boardId}/permissions`);
-  return onSnapshot(permsCol, callback);
+  return onSnapshot(permsCol, callback, errorCallback);
 }
 export async function revokeAccess(boardId, userUid) {
   const batch = writeBatch(db);
@@ -148,17 +148,17 @@ export async function revokeAccess(boardId, userUid) {
   return batch.commit();
 }
 
-export function listenForOwnedBoards(userId, callback) {
+export function listenForOwnedBoards(userId, callback, errorCallback) {
     const q = query(collection(db, 'boards'), where('ownerUid', '==', userId), orderBy('timestamp', 'desc'));
-    return onSnapshot(q, callback);
+    return onSnapshot(q, callback, errorCallback);
 }
 
-export function listenForSharedBoards(userId, callback) {
+export function listenForSharedBoards(userId, callback, errorCallback) {
     const sharedBoardsCol = collection(db, `users/${userId}/sharedBoards`);
     // Note: We can't order by a server timestamp on the board itself here,
     // so we order by when it was shared with the user.
     const q = query(sharedBoardsCol, orderBy('sharedAt', 'desc'));
-    return onSnapshot(q, callback);
+    return onSnapshot(q, callback, errorCallback);
 }
 
 /**

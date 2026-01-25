@@ -61,8 +61,10 @@ service cloud.firestore {
       function isOwner() {
         return request.auth.uid == get(/databases/$(database)/documents/boards/$(boardId)).data.ownerUid;
       }
-      function hasSharedAccess() {
-        return exists(/databases/$(database)/documents/boards/$(boardId)/permissions/$(request.auth.uid));
+      function hasSharedEditAccess() {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/boards/$(boardId)/permissions/$(request.auth.uid))
+          && get(/databases/$(database)/documents/boards/$(boardId)/permissions/$(request.auth.uid)).data.level == 'edit';
       }
 
       match /permissions/{userId} {
@@ -75,8 +77,9 @@ service cloud.firestore {
 
       match /problems/{problemId} {
         allow read: if true; // All problems are public if the board is known
-        allow create, update: if isOwner() || hasSharedAccess() || hasEditAccess(boardId);
-        allow delete: if isOwner(); // Only the board owner can delete problems
+        allow create, update: if isOwner() || hasSharedEditAccess() || hasEditAccess(boardId);
+        // Only signed-in editors (or the owner) can delete; guests cannot.
+        allow delete: if isOwner() || hasSharedEditAccess();
       }
     }
   }

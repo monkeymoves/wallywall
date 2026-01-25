@@ -91,6 +91,11 @@ window.addEventListener('DOMContentLoaded', () => {
     if (currentBoardData && currentUser.uid === currentBoardData.ownerUid) return true;
     return SHARED_ACCESS_LEVEL === 'edit';
   }
+  function canDeleteCurrentBoard(){
+    if (!currentUser || currentUser.isAnonymous) return false;
+    if (currentBoardData && currentUser.uid === currentBoardData.ownerUid) return true;
+    return SHARED_ACCESS_LEVEL === 'edit';
+  }
 
   function updateAuthUI(user){
     const loggedIn = !!user && !user.isAnonymous;
@@ -214,26 +219,38 @@ document.addEventListener('keydown', (e) => {
     const myBoardsSection = document.getElementById('my-boards-section');
     const sharedBoardsSection = document.getElementById('shared-boards-section');
 
-    unsubscribeOwned = listenForOwnedBoards(userId, (snapshot) => {
-      myBoardsSection.classList.toggle('hidden', snapshot.empty);
-      const boardDocs = snapshot.docs;
-      renderBoardList(ownedList, boardDocs);
-      if (!firstLoad && boardDocs.length > 0) {
-        firstLoad = true;
-        loadBoard(boardDocs[0].id, boardDocs[0].data());
+    unsubscribeOwned = listenForOwnedBoards(
+      userId,
+      (snapshot) => {
+        myBoardsSection.classList.toggle('hidden', snapshot.empty);
+        const boardDocs = snapshot.docs;
+        renderBoardList(ownedList, boardDocs);
+        if (!firstLoad && boardDocs.length > 0) {
+          firstLoad = true;
+          loadBoard(boardDocs[0].id, boardDocs[0].data());
+        }
+      },
+      (err) => {
+        console.error('Owned boards listener error:', err);
       }
-    });
+    );
 
-    unsubscribeShared = listenForSharedBoards(userId, async (snapshot) => {
-      sharedBoardsSection.classList.toggle('hidden', snapshot.empty);
-      const boardDocs = [];
-      for (const docSnap of snapshot.docs) {
-        const boardData = docSnap.data();
-        const boardDoc = await getDoc(doc(db, 'boards', boardData.boardId));
-        if (boardDoc.exists()) boardDocs.push(boardDoc);
+    unsubscribeShared = listenForSharedBoards(
+      userId,
+      async (snapshot) => {
+        sharedBoardsSection.classList.toggle('hidden', snapshot.empty);
+        const boardDocs = [];
+        for (const docSnap of snapshot.docs) {
+          const boardData = docSnap.data();
+          const boardDoc = await getDoc(doc(db, 'boards', boardData.boardId));
+          if (boardDoc.exists()) boardDocs.push(boardDoc);
+        }
+        renderBoardList(sharedList, boardDocs);
+      },
+      (err) => {
+        console.error('Shared boards listener error:', err);
       }
-      renderBoardList(sharedList, boardDocs);
-    });
+    );
   }
 
   function renderBoardList(listElement, boardDocs){
@@ -356,6 +373,8 @@ document.addEventListener('keydown', (e) => {
     }
     updateOwnerControls(currentUser, ownerUid);
     updateAuthUI(currentUser);
+    editProblemBtn.classList.toggle('hidden', !(canEditCurrentBoard() && !!problemSelect.value));
+    deleteProblemBtn.classList.toggle('hidden', !(canDeleteCurrentBoard() && !!problemSelect.value));
     if (currentUser && currentUser.uid === ownerUid) loadAndDisplaySharedUsers(id);
   }
 
@@ -388,30 +407,36 @@ document.addEventListener('keydown', (e) => {
   let unsubscribeSharedUsers = null;
   function loadAndDisplaySharedUsers(boardId){
     unsubscribeSharedUsers?.();
-    unsubscribeSharedUsers = listenForSharedUsers(boardId, (snapshot) => {
-      sharedUsersList.innerHTML = '';
-      if (snapshot.empty) { sharedUsersList.innerHTML = '<li>Not shared with any users.</li>'; return; }
-      snapshot.forEach(doc => {
-        const li = document.createElement('li');
-        const emailSpan = document.createElement('span');
-        emailSpan.textContent = doc.data().email;
-        const revokeBtn = document.createElement('button');
-        revokeBtn.textContent = 'Revoke';
-        revokeBtn.onclick = async () => {
-          if (confirm(`Revoke access for ${doc.data().email}?`)) await revokeAccess(boardId, doc.id);
-        };
-        li.append(emailSpan, revokeBtn);
-        sharedUsersList.append(li);
-      });
-    });
+    unsubscribeSharedUsers = listenForSharedUsers(
+      boardId,
+      (snapshot) => {
+        sharedUsersList.innerHTML = '';
+        if (snapshot.empty) { sharedUsersList.innerHTML = '<li>Not shared with any users.</li>'; return; }
+        snapshot.forEach(doc => {
+          const li = document.createElement('li');
+          const emailSpan = document.createElement('span');
+          emailSpan.textContent = doc.data().email;
+          const revokeBtn = document.createElement('button');
+          revokeBtn.textContent = 'Revoke';
+          revokeBtn.onclick = async () => {
+            if (confirm(`Revoke access for ${doc.data().email}?`)) await revokeAccess(boardId, doc.id);
+          };
+          li.append(emailSpan, revokeBtn);
+          sharedUsersList.append(li);
+        });
+      },
+      (err) => {
+        console.error('Shared users listener error:', err);
+      }
+    );
   }
 
   problemSelect.onchange = async () => {
-    const isOwner = currentUser && currentBoardData && currentUser.uid === currentBoardData.ownerUid;
     const canEdit = canEditCurrentBoard();
+    const canDelete = canDeleteCurrentBoard();
 
     editProblemBtn.classList.toggle('hidden', !(canEdit && !!problemSelect.value));
-    deleteProblemBtn.classList.toggle('hidden', !(isOwner && !!problemSelect.value));
+    deleteProblemBtn.classList.toggle('hidden', !(canDelete && !!problemSelect.value));
 
     if (problemSelect.value) {
       const ds = await getDoc(doc(db, `boards/${boardId}/problems/${problemSelect.value}`));
@@ -452,8 +477,8 @@ document.addEventListener('keydown', (e) => {
   deleteProblemBtn.onclick = async () => {
     const problemId = problemSelect.value;
     if (!boardId || !problemId) return;
-    const isOwner = currentUser && currentBoardData && currentUser.uid === currentBoardData.ownerUid;
-    if (!isOwner) return alert('Only the board owner can delete problems.');
+    const canDelete = canDeleteCurrentBoard();
+    if (!canDelete) return alert('Only signed-in editors can delete problems.');
     const problemName = problemSelect.options[problemSelect.selectedIndex].text;
     if (confirm(`Are you sure you want to delete "${problemName}"?`)) {
       try {
@@ -641,10 +666,10 @@ document.addEventListener('keydown', (e) => {
     hdrTitle.classList.remove('hidden');
     problemSelect.classList.remove('hidden');
     const canEdit = canEditCurrentBoard();
-    const isOwner = currentUser && currentBoardData && currentUser.uid === currentBoardData.ownerUid;
+    const canDelete = canDeleteCurrentBoard();
     newProblemBtn.classList.toggle('hidden', !canEdit);
     editProblemBtn.classList.toggle('hidden', !(canEdit && !!problemSelect.value));
-    deleteProblemBtn.classList.toggle('hidden', !(isOwner && !!problemSelect.value));
+    deleteProblemBtn.classList.toggle('hidden', !(canDelete && !!problemSelect.value));
     drawControls.classList.add('hidden');
     finishDrawBtn.classList.add('hidden');
     cancelDrawBtn.classList.add('hidden');
