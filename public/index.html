@@ -2,137 +2,321 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Wally-Wall</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>WallyWall</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="./app.js" defer></script>
 </head>
 <body class="dark-theme">
-
-  <!-- NAV BAR -->
-  <header class="hdr">
-    <button id="menuBtn" class="hdr-btn" aria-label="Boards menu">☰</button>
-    <span class="hdr-title">WallyWall</span>
-
-    <!-- view-mode: pick or new -->
-    <select id="problemSelect" class="hdr-control problem-select">
-      <option value="">— Select a problem —</option>
-    </select>
-    <button id="newProblemBtn" class="hdr-control fab" aria-label="New problem">＋</button>
-
-    <!-- edit existing -->
-    <button id="editProblemBtn" class="hdr-btn hidden" aria-label="Edit problem">✎</button>
-    <button id="deleteProblemBtn" class="hdr-btn hidden" aria-label="Delete problem">🗑️</button>
-
-    <!-- draw-mode controls -->
-    <div id="drawControls" class="hdr-control draw-toolbar hidden">
-      <button data-type="start"  class="hold-btn active">Start</button>
-      <button data-type="hold"   class="hold-btn">Hold</button>
-      <button data-type="finish" class="hold-btn">Finish</button>
-      <button data-type="delete" class="hold-btn">Delete</button>
+  <header class="topbar">
+    <button id="openBoardsBtn" class="icon-btn" aria-label="Open boards">☰</button>
+    <div class="topbar-copy">
+      <p class="eyebrow">WallyWall</p>
+      <h1 id="currentBoardName">Choose a board</h1>
     </div>
-    <button id="finishDrawBtn" class="hdr-btn hidden" aria-label="Finish drawing">✓</button>
-    <button id="cancelDrawBtn" class="hdr-btn hidden" aria-label="Cancel drawing">✕</button>
+    <div class="topbar-actions">
+      <span id="permissionPill" class="pill hidden"></span>
+      <button id="openAccessBtn" class="icon-btn hidden" aria-label="Open access controls">⋯</button>
+      <button id="openAccountBtn" class="icon-btn" aria-label="Open account">◐</button>
+    </div>
   </header>
 
-  <!-- BOARDS SIDEBAR + AUTH PANEL -->
-  <aside id="boardsPanel" class="boards-panel">
-    <div class="sidebar-section">
-      <h3 id="account-title">Account</h3>
-      <!-- email/password login UI -->
-      <div id="authPanel" class="auth-panel">
-        <h3 id="authStatus"></h3>
-        <p id="auth-description">Log in or create an account to save boards.</p>
-        <input  id="emailInput"    type="email"    placeholder="Email" />
-        <input  id="passwordInput" type="password" placeholder="Password" />
-        <button id="loginBtn">Log In / Sign Up</button>
-        <button id="signOutBtn" class="hidden">Sign Out</button>
+  <main class="app-main">
+    <section id="welcomeMessage" class="empty-state card">
+      <span class="empty-icon">🧗</span>
+      <h2>Your board comes first</h2>
+      <p>Join a board with a code, create your own board, or sign in to keep your boards and shared access in sync.</p>
+      <div class="empty-actions">
+        <button id="welcomeJoinBtn" class="btn primary">Join with code</button>
+        <button id="welcomeBoardsBtn" class="btn">Browse boards</button>
       </div>
-      <button id="enter-guest-code" class="btn">
-        Use Guest Code
-      </button>
-    </div>
+    </section>
 
-    <div class="sidebar-section">
-      <h3 id="boards-title">Boards</h3>
-      <div class="board-panel">
-        <div id="upload-controls" class="hidden">
-          <h4>Upload your board</h4>
-          <!-- Style the label as a button, and hide the default input -->
-          <label for="file" class="btn">Choose File</label>
-          <input id="file" type="file" class="file-upload-input" />
-          <p id="fileStatus"></p>
+    <p id="boardStatus" class="status-banner hidden"></p>
+
+    <section id="boardScene" class="board-scene hidden">
+      <div class="board-frame">
+        <img id="currentBoard" alt="Climbing board" />
+        <canvas id="overlayCanvas"></canvas>
+      </div>
+
+      <section id="problemEmptyState" class="card problem-empty hidden">
+        <h3>No problems on this board yet</h3>
+        <p>Add the first problem if you have edit access, or switch to another board from the boards sheet.</p>
+      </section>
+
+      <section id="problemInfoCard" class="problem-info card hidden">
+        <div class="problem-info-header">
+          <span id="problemGradeDisplay" class="pill accent">Ungraded</span>
+          <span id="problemInfoName" class="problem-info-name"></span>
         </div>
-        <div id="boardsList"></div>
-      </div>
-    </div>
-    <div id="board-owner-controls" class="sidebar-section hidden">
-      <h3 id="board-owner-title">Board Owner</h3>
-      <div class="owner-controls-group">
-        <h4>Guest Access</h4>
-        <button id="generate-read-code" class="btn">Generate Read Code</button>
-        <button id="generate-edit-code" class="btn">Generate Edit Code</button>
-      </div>
-      <div id="user-access-controls" class="owner-controls-group hidden">
-        <h4>Shared Users</h4>
-        <ul id="shared-users-list"></ul>
-      </div>
-    </div>
-  </aside>
-
-  <!-- Backdrop for slide-out panel -->
-  <div id="panel-backdrop" aria-hidden="true"></div>
-
-  <!-- BOARD + OVERLAY -->
-  <main id="boardMain" class="board-main">
-    <div id="welcomeMessage" class="welcome-message">
-      <h2>Welcome to WallyWall!</h2>
-      <p>To get started, open the menu (☰) to create an account and upload a board, or enter a guest code.</p>
-    </div>
-    <div class="board-container hidden">
-      <img    id="currentBoard" alt="Climbing board" />
-      <canvas id="overlayCanvas"></canvas>
-    </div>
-    <div id="problemInfoCard" class="problem-info-card hidden">
-      <span id="problemGradeDisplay" class="problem-grade-badge"></span>
-      <p id="problemDescriptionText"></p>
-    </div>
+        <p id="problemDescriptionText">Select a problem to see the details.</p>
+      </section>
+    </section>
   </main>
 
-  <!-- BOTTOM SHEET FOR NAMING / SAVING -->
-  <div id="problemSheet" class="sheet">
-    <div class="sheet-handle"></div>
+  <footer class="bottom-dock">
+    <div id="browseControls" class="dock-panel">
+      <label class="field compact-field">
+        <span>Filter problems</span>
+        <input id="problemSearchInput" type="search" placeholder="Search name, grade, notes" />
+      </label>
+      <div class="problem-action-row">
+        <label class="field compact-field grow">
+          <span>Problem</span>
+          <select id="problemSelect">
+            <option value="">Select a problem</option>
+          </select>
+        </label>
+        <button id="newProblemBtn" class="btn primary hidden">New</button>
+        <button id="editProblemBtn" class="btn hidden">Edit</button>
+        <button id="deleteProblemBtn" class="btn danger hidden">Delete</button>
+      </div>
+    </div>
+
+    <div id="editControls" class="dock-panel hidden">
+      <div id="drawControls" class="draw-toolbar">
+        <button data-type="start" class="hold-btn active">Start</button>
+        <button data-type="hold" class="hold-btn">Hold</button>
+        <button data-type="finish" class="hold-btn">Finish</button>
+        <button data-type="delete" class="hold-btn danger-text">Delete</button>
+      </div>
+      <div class="problem-action-row">
+        <button id="cancelDrawBtn" class="btn">Cancel</button>
+        <button id="finishDrawBtn" class="btn primary">Continue</button>
+      </div>
+    </div>
+  </footer>
+
+  <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
+
+  <section id="boardsSheet" class="sheet hidden" aria-labelledby="boardsSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Boards</p>
+        <h2 id="boardsSheetTitle">Boards and shortcuts</h2>
+      </div>
+      <button id="closeBoardsSheetBtn" class="icon-btn" aria-label="Close boards sheet">✕</button>
+    </div>
     <div class="sheet-body">
-      <input    id="problemName" placeholder="Problem name" />
-      <textarea id="problemDesc" placeholder="Description (optional)"></textarea>
-      <select id="problemGrade" placeholder="Grade">
-        <option value="">— Select Grade —</option>
-        <option>V0</option>
-        <option>V1</option>
-        <option>V2</option>
-        <option>V3</option>
-        <option>V4</option>
-        <option>V5</option>
-        <option>V6</option>
-        <option>V7</option>
-        <option>V8</option>
-        <option>V9</option>
-        <option>V10</option>
-        <option>V11</option>
-        <option>V12</option>
-        <option>V13</option>
-        <option>V14</option>
-        <option>V14+</option>
-      </select>
-      <div class="sheet-actions">
-        <button id="cancelSheetBtn">Cancel</button>
-        <button id="saveProblemBtn" class="primary">Save</button>
+      <p id="boardsListMessage" class="sheet-copy">Open a board, join one with a code, or create your own board.</p>
+      <div class="shortcut-grid">
+        <button id="createBoardShortcutBtn" class="shortcut-card">
+          <strong>Create board</strong>
+          <span>Upload a board photo and start setting problems.</span>
+        </button>
+        <button id="joinBoardShortcutBtn" class="shortcut-card">
+          <strong>Join with code</strong>
+          <span>Use a board code for guest or member access.</span>
+        </button>
+        <button id="futureSessionsBtn" class="shortcut-card muted" type="button" disabled>
+          <strong>Sessions</strong>
+          <span>Reserved for future logging and history.</span>
+        </button>
+      </div>
+
+      <section id="ownedBoardsSection" class="sheet-section hidden">
+        <div class="section-heading-row">
+          <h3>My boards</h3>
+          <span class="section-caption">Boards you own</span>
+        </div>
+        <ul id="ownedBoardsList" class="board-list"></ul>
+      </section>
+
+      <section id="sharedBoardsSection" class="sheet-section hidden">
+        <div class="section-heading-row">
+          <h3>Shared with me</h3>
+          <span class="section-caption">Boards you can use on other walls</span>
+        </div>
+        <ul id="sharedBoardsList" class="board-list"></ul>
+      </section>
+    </div>
+  </section>
+
+  <section id="accessSheet" class="sheet hidden" aria-labelledby="accessSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Access</p>
+        <h2 id="accessSheetTitle">Board access</h2>
+      </div>
+      <button id="closeAccessSheetBtn" class="icon-btn" aria-label="Close access sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p id="accessSheetDescription" class="sheet-copy">Choose a board to see permissions and sharing options.</p>
+
+      <section id="ownerAccessSection" class="sheet-section hidden">
+        <h3>Guest codes</h3>
+        <div class="button-row wrap">
+          <button id="generateReadCodeBtn" class="btn">Generate read code</button>
+          <button id="generateEditCodeBtn" class="btn primary">Generate edit code</button>
+        </div>
+        <div id="generatedCodePanel" class="generated-code hidden">
+          <div>
+            <p class="generated-code-label">Latest code</p>
+            <strong id="generatedCodeValue">------</strong>
+            <p id="generatedCodeMeta" class="section-caption"></p>
+          </div>
+          <button id="copyGeneratedCodeBtn" class="btn">Copy</button>
+        </div>
+
+        <div class="section-heading-row shared-users-heading">
+          <h3>Shared users</h3>
+          <span id="sharedUsersEmpty" class="section-caption">No signed-in members on this board yet.</span>
+        </div>
+        <ul id="sharedUsersList" class="shared-users-list"></ul>
+      </section>
+
+      <section id="memberAccessSection" class="sheet-section hidden">
+        <h3>Your access</h3>
+        <p id="memberAccessText" class="sheet-copy"></p>
+      </section>
+    </div>
+  </section>
+
+  <section id="accountSheet" class="sheet hidden" aria-labelledby="accountSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Account</p>
+        <h2 id="accountSheetTitle">Account</h2>
+      </div>
+      <button id="closeAccountSheetBtn" class="icon-btn" aria-label="Close account sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p id="accountStatus" class="sheet-copy">Sign in to own boards and keep shared access between visits.</p>
+
+      <div id="signedOutAccountView" class="sheet-section">
+        <label class="field">
+          <span>Email</span>
+          <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="passwordInput" type="password" placeholder="At least 6 characters" autocomplete="current-password" />
+        </label>
+        <div class="button-row wrap">
+          <button id="signInBtn" class="btn">Sign in</button>
+          <button id="createAccountBtn" class="btn primary">Create account</button>
+        </div>
+        <p id="accountHint" class="section-caption">Guests can still join a board with a code without creating an account.</p>
+      </div>
+
+      <div id="signedInAccountView" class="sheet-section hidden">
+        <div class="account-summary card subtle-card">
+          <p class="section-caption">Signed in as</p>
+          <strong id="signedInEmail"></strong>
+        </div>
+        <button id="signOutBtn" class="btn">Sign out</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="createBoardSheet" class="sheet hidden" aria-labelledby="createBoardSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Create</p>
+        <h2 id="createBoardSheetTitle">Create a board</h2>
+      </div>
+      <button id="closeCreateBoardSheetBtn" class="icon-btn" aria-label="Close create board sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <form id="createBoardForm" class="sheet-form">
+        <label class="field">
+          <span>Board name</span>
+          <input id="boardNameInput" type="text" maxlength="80" placeholder="Home board" required />
+        </label>
+        <div class="field file-field">
+          <span>Board image</span>
+          <label for="boardImageInput" id="boardImageLabel" class="file-picker">Choose an image</label>
+          <input id="boardImageInput" type="file" accept="image/*" required />
+        </div>
+        <p id="createBoardStatus" class="section-caption">You need an account to create a board.</p>
+        <button id="createBoardSubmitBtn" class="btn primary" type="submit">Create board</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="joinCodeSheet" class="sheet hidden" aria-labelledby="joinCodeSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Join</p>
+        <h2 id="joinCodeSheetTitle">Join a board with a code</h2>
+      </div>
+      <button id="closeJoinCodeSheetBtn" class="icon-btn" aria-label="Close join board sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <form id="joinCodeForm" class="sheet-form">
+        <label class="field">
+          <span>Access code</span>
+          <input id="joinCodeInput" type="text" maxlength="12" placeholder="ABC123" autocapitalize="characters" required />
+        </label>
+        <p id="joinCodeStatus" class="sheet-copy">If you sign in first, the board will be saved to your account automatically.</p>
+        <button id="joinCodeSubmitBtn" class="btn primary" type="submit">Join board</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="problemSheet" class="sheet hidden" aria-labelledby="problemSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Problem</p>
+        <h2 id="problemSheetTitle">Problem details</h2>
+      </div>
+      <button id="closeProblemSheetBtn" class="icon-btn" aria-label="Close problem details sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <label class="field">
+        <span>Problem name</span>
+        <input id="problemName" placeholder="Evening warm-up" />
+      </label>
+      <label class="field">
+        <span>Description</span>
+        <textarea id="problemDesc" placeholder="Optional notes, beta, setters, or feet rules"></textarea>
+      </label>
+      <label class="field">
+        <span>Grade</span>
+        <select id="problemGrade">
+          <option value="">Select grade</option>
+          <option>V0</option>
+          <option>V1</option>
+          <option>V2</option>
+          <option>V3</option>
+          <option>V4</option>
+          <option>V5</option>
+          <option>V6</option>
+          <option>V7</option>
+          <option>V8</option>
+          <option>V9</option>
+          <option>V10</option>
+          <option>V11</option>
+          <option>V12</option>
+          <option>V13</option>
+          <option>V14</option>
+          <option>V14+</option>
+        </select>
+      </label>
+      <div class="button-row wrap end">
+        <button id="cancelSheetBtn" class="btn" type="button">Cancel</button>
+        <button id="saveProblemBtn" class="btn primary" type="button">Save problem</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="confirmDialog" class="dialog hidden" role="alertdialog" aria-modal="true" aria-labelledby="confirmDialogTitle">
+    <div class="dialog-card card">
+      <div class="dialog-copy">
+        <h2 id="confirmDialogTitle">Are you sure?</h2>
+        <p id="confirmDialogBody">This action cannot be undone.</p>
+      </div>
+      <div class="button-row wrap end">
+        <button id="confirmDialogCancelBtn" class="btn" type="button">Cancel</button>
+        <button id="confirmDialogConfirmBtn" class="btn danger" type="button">Confirm</button>
       </div>
     </div>
   </div>
 
+  <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
 </body>
 </html>

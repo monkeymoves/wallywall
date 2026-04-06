@@ -1,681 +1,1035 @@
-// public/app.js
-
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
-import {
-  collection, onSnapshot, query, orderBy,
-  addDoc, serverTimestamp, getDoc, doc
-} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
-import { auth, db, storage } from './firebase/firebaseConfig.mjs';
-import { initAuth } from './firebase/auth.js';
+import { auth, storage } from './firebase/firebaseConfig.mjs';
+import { createAccount, signInWithEmail, signOutUser } from './firebase/auth.js';
 import {
-  addProblem, updateProblem, deleteProblem, getProblemsByBoardId,
-  shareBoardWithUser, listenForOwnedBoards, listenForSharedBoards,
-  listenForSharedUsers, revokeAccess, getUserPermissionForBoard, problemsCol, addAccessCode
+  addAccessCode,
+  addProblem,
+  createBoard,
+  deleteProblem,
+  getAccessCode,
+  getBoard,
+  getProblemsByBoardId,
+  getUserPermissionForBoard,
+  listenForOwnedBoards,
+  listenForSharedBoards,
+  listenForSharedUsers,
+  revokeAccess,
+  shareBoardWithUser,
+  updateProblem,
 } from './firebase/firestore.js';
-import { DOM } from './ui.js';
+import {
+  clearGuestSession,
+  clearSelectedBoardId,
+  getGuestSession,
+  getSelectedBoardId,
+  setGuestSession,
+  setSelectedBoardId,
+} from './appState.js';
+import { ProblemEditor } from './problemEditor.js';
+import {
+  DOM,
+  closeAllSheets,
+  closeSheet,
+  openSheet,
+  setButtonBusy,
+  setInlineStatus,
+  setPill,
+  showBoardStatus,
+  showConfirm,
+  showToast,
+} from './ui.js';
 
-// Guest globals
-window.GUEST_CODE = null;
-window.GUEST_LEVEL = null;
-window.GUEST_BOARD_ID = null;
-window.GUEST_BOARD_NAME = null;
-
-let SHARED_ACCESS_LEVEL = null;
-let firstLoad = false;
-
-window.addEventListener('DOMContentLoaded', () => {
-  const {
-    menuBtn, boardsPanel,
-    fileInput, fileStatus, boardsList,
-    authPanel, emailInput, passwordInput, authDescription,
-    loginBtn, signOutBtn, uploadControls, userAccessControls, sharedUsersList,
-    hdrTitle,
-    boardMain, welcomeMessage, boardContainer, currentBoard, canvas,
-    problemInfoCard, problemGradeDisplay, problemDescriptionText, deleteProblemBtn,
-    boardOwnerControls, generateReadCodeBtn, generateEditCodeBtn,
-    problemSelect, newProblemBtn, editProblemBtn,
-    drawControls, finishDrawBtn, cancelDrawBtn,
-    problemSheet, cancelSheetBtn, saveProblemBtn, problemGrade,
-    problemName, problemDesc,
-    holdBtns, guestCodeBtn
-  } = DOM;
-
-  let isEditingExistingProblem = false;
-  initAuth({ loginBtn, signOutBtn, emailInput, passwordInput });
-
-  let currentUser = null;
-  let currentBoardData = null;
-  let unsubscribeOwned = null;
-  let unsubscribeShared = null;
-
-  onAuthStateChanged(auth, async user => {
-    const hadGuestCode = !!window.GUEST_CODE;
-    const guestBoardId = window.GUEST_BOARD_ID;
-    const guestBoardName = window.GUEST_BOARD_NAME;
-
-    currentUser = user;
-    updateAuthUI(user);
-    if (currentBoardData) updateOwnerControls(user, currentBoardData.ownerUid);
-
-    if (user && !user.isAnonymous && hadGuestCode && guestBoardId) {
-      try {
-        await shareBoardWithUser(guestBoardId, guestBoardName, user.uid, user.email, window.GUEST_LEVEL, window.GUEST_CODE);
-        alert(`Access to "${guestBoardName}" has been saved to your new account!`);
-        window.GUEST_CODE = window.GUEST_LEVEL = window.GUEST_BOARD_ID = window.GUEST_BOARD_NAME = null;
-      } catch (e) {
-        console.error(e);
-        alert("Could not save board access to your new account.");
-      }
-    }
-
-    if (user) {
-      listenForUserBoards(user.uid);
-    } else {
-      firstLoad = false;
-      unsubscribeOwned?.(); unsubscribeOwned = null;
-      unsubscribeShared?.(); unsubscribeShared = null;
-      boardsList.innerHTML = '';
-      welcomeMessage.classList.remove('hidden');
-      boardContainer.classList.add('hidden');
-      problemInfoCard.classList.add('hidden');
-      problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
-      holds = [];
-      redraw();
-    }
-  });
-
-  function canEditCurrentBoard(){
-    if (!currentUser || currentUser.isAnonymous) return window.GUEST_LEVEL === 'edit';
-    if (currentBoardData && currentUser.uid === currentBoardData.ownerUid) return true;
-    return SHARED_ACCESS_LEVEL === 'edit';
-  }
-  function canDeleteCurrentBoard(){
-    if (!currentUser || currentUser.isAnonymous) return false;
-    if (currentBoardData && currentUser.uid === currentBoardData.ownerUid) return true;
-    return SHARED_ACCESS_LEVEL === 'edit';
-  }
-
-  function updateAuthUI(user){
-    const loggedIn = !!user && !user.isAnonymous;
-    const canEdit = canEditCurrentBoard();
-
-    authDescription.classList.toggle('hidden', loggedIn);
-    emailInput.classList.toggle('hidden', loggedIn);
-    passwordInput.classList.toggle('hidden', loggedIn);
-    loginBtn.classList.toggle('hidden', loggedIn);
-    signOutBtn.classList.toggle('hidden', !loggedIn);
-
-    uploadControls.classList.toggle('hidden', !loggedIn);
-    newProblemBtn.classList.toggle('hidden', !canEdit);
-    editProblemBtn.classList.toggle('hidden', !(canEdit && !!problemSelect.value));
-
-    authPanel.querySelector('h3')?.remove();
-    if (loggedIn) {
-      const h = document.createElement('h3');
-      h.textContent = `Signed in: ${user.email}`;
-      authPanel.prepend(h);
-    }
-  }
-
-  /*
-  if (location.hostname === 'localhost') {
-    connectAuthEmulator(auth, 'http://localhost:9099');
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    connectStorageEmulator(storage, 'localhost', 9199);
-  }
-  */
-
-  drawControls.classList.add('hidden');
-  finishDrawBtn.classList.add('hidden');
-  cancelDrawBtn.classList.add('hidden');
-  problemSheet.classList.remove('visible');
-  editProblemBtn.classList.add('hidden');
-  newProblemBtn.classList.add('hidden');
-  canvas.style.pointerEvents = 'none';
-  newProblemBtn.classList.remove('fab');
-  newProblemBtn.classList.add('hdr-btn');
-
-  const backdrop = document.getElementById('panel-backdrop');
-
-function openPanel() {
-  boardsPanel.classList.add('open');
-  backdrop.classList.add('active');
-}
-
-function closePanel() {
-  if (!boardsPanel.classList.contains('open')) return;
-  boardsPanel.classList.remove('open');
-  backdrop.classList.remove('active');
-}
-
-function togglePanel() {
-  if (boardsPanel.classList.contains('open')) closePanel();
-  else openPanel();
-}
-
-menuBtn.onclick = togglePanel;
-
-// Click outside = close
-backdrop.addEventListener('click', closePanel);
-
-// Prevent clicks inside the panel from closing it
-boardsPanel.addEventListener('click', e => e.stopPropagation());
-
-// Also close if you click anywhere that is NOT inside the panel or the hamburger
-document.addEventListener('pointerdown', (e) => {
-  if (!boardsPanel.classList.contains('open')) return;
-  const clickedInsidePanel = boardsPanel.contains(e.target);
-  const clickedMenuBtn     = menuBtn.contains(e.target);
-  if (!clickedInsidePanel && !clickedMenuBtn) closePanel();
-}, true); // capture to run before inner handlers
-
-// Esc to close
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closePanel();
+const bottomDock = DOM.browseControls.closest('footer');
+const editor = new ProblemEditor({
+  canvas: DOM.canvas,
+  image: DOM.currentBoard,
+  holdButtons: DOM.holdBtns,
 });
 
+const state = {
+  currentUser: null,
+  currentBoard: null,
+  currentProblems: [],
+  ownedBoards: [],
+  sharedBoards: [],
+  selectedProblemId: '',
+  sharedAccessLevel: null,
+  isPlacementMode: false,
+  problemSheetMode: 'create',
+  latestGeneratedCode: null,
+  boardLoadToken: 0,
+};
 
-  fileInput.onchange = async () => {
-    const u = currentUser;
-    if (!u || u.isAnonymous) return alert('⚠️ Sign in to upload');
-    const f = fileInput.files[0];
-    if (!f) return;
-    const boardName = prompt('Enter a name for this board:', f.name.replace(/\.[^/.]+$/, ""));
-    if (!boardName) return;
-    try {
-      const storageRefPath = storageRef(storage, `layouts/${f.name}`);
-      await uploadBytes(storageRefPath, f);
-      const url = await getDownloadURL(storageRefPath);
-      fileStatus.textContent = 'Uploading…';
+let unsubscribeOwnedBoards = null;
+let unsubscribeSharedBoards = null;
+let unsubscribeSharedUsers = null;
 
-      const newBoardData = { name: boardName, imageUrl: url, timestamp: serverTimestamp(), ownerUid: u.uid };
-      const newDocRef = await addDoc(collection(db, 'boards'), newBoardData);
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
 
-      fileStatus.textContent = '✅ Saved';
-      loadBoard(newDocRef.id, newBoardData);
-      boardsPanel.classList.remove('open');
-    } catch (e) {
-      fileStatus.textContent = `❌ ${e.message}`;
-    }
-  };
+function normalizeCode(value) {
+  return value.trim().toUpperCase();
+}
 
-  function listenForUserBoards(userId){
-    if (unsubscribeOwned) return;
+function gradeValue(grade) {
+  if (!grade) return -1;
+  const match = grade.match(/V(\d+)(\+)?/);
+  if (!match) return -1;
+  return Number.parseInt(match[1], 10) + (match[2] ? 0.5 : 0);
+}
 
-    boardsList.innerHTML = `
-      <div id="my-boards-section" class="list-section hidden">
-        <h4>My Boards</h4>
-        <ul id="ownedBoardsList"></ul>
-      </div>
-      <div id="shared-boards-section" class="list-section hidden">
-        <h4>Shared With Me</h4>
-        <ul id="sharedBoardsList"></ul>
-      </div>
-    `;
-    const ownedList  = document.getElementById('ownedBoardsList');
-    const sharedList = document.getElementById('sharedBoardsList');
-    const myBoardsSection = document.getElementById('my-boards-section');
-    const sharedBoardsSection = document.getElementById('shared-boards-section');
+function randomCode() {
+  return (Math.random().toString(36) + '000000000000')
+    .slice(2, 8)
+    .toUpperCase();
+}
 
-    unsubscribeOwned = listenForOwnedBoards(
-      userId,
-      (snapshot) => {
-        myBoardsSection.classList.toggle('hidden', snapshot.empty);
-        const boardDocs = snapshot.docs;
-        renderBoardList(ownedList, boardDocs);
-        if (!firstLoad && boardDocs.length > 0) {
-          firstLoad = true;
-          loadBoard(boardDocs[0].id, boardDocs[0].data());
-        }
-      },
-      (err) => {
-        console.error('Owned boards listener error:', err);
-      }
-    );
+function isOwner() {
+  return Boolean(
+    state.currentUser &&
+    state.currentBoard &&
+    state.currentUser.uid === state.currentBoard.ownerUid
+  );
+}
 
-    unsubscribeShared = listenForSharedBoards(
-      userId,
-      async (snapshot) => {
-        sharedBoardsSection.classList.toggle('hidden', snapshot.empty);
-        const boardDocs = [];
-        for (const docSnap of snapshot.docs) {
-          const boardData = docSnap.data();
-          const boardDoc = await getDoc(doc(db, 'boards', boardData.boardId));
-          if (boardDoc.exists()) boardDocs.push(boardDoc);
-        }
-        renderBoardList(sharedList, boardDocs);
-      },
-      (err) => {
-        console.error('Shared boards listener error:', err);
-      }
-    );
+function getGuestAccessForCurrentBoard() {
+  const guestSession = getGuestSession();
+  if (!guestSession || !state.currentBoard) return null;
+  return guestSession.boardId === state.currentBoard.id ? guestSession : null;
+}
+
+function canEditCurrentBoard() {
+  if (isOwner()) return true;
+  if (state.currentUser && state.sharedAccessLevel === 'edit') return true;
+  return getGuestAccessForCurrentBoard()?.level === 'edit';
+}
+
+function canDeleteCurrentBoard() {
+  if (isOwner()) return true;
+  return Boolean(state.currentUser && state.sharedAccessLevel === 'edit');
+}
+
+function getAccessPresentation() {
+  if (!state.currentBoard) {
+    return { label: '', className: 'hidden', description: '' };
   }
 
-  function renderBoardList(listElement, boardDocs){
-    listElement.innerHTML = '';
-    if (boardDocs.length === 0) { listElement.innerHTML = '<li>None yet.</li>'; return; }
-    boardDocs.forEach(d => {
-      const li = document.createElement('li');
-      li.textContent = d.data().name || d.id;
-      li.onclick = () => loadBoard(d.id, d.data());
-      listElement.append(li);
+  if (isOwner()) {
+    return {
+      label: 'Owner',
+      className: 'pill-owner',
+      description: `You own ${state.currentBoard.name}.`,
+    };
+  }
+
+  if (state.currentUser && state.sharedAccessLevel === 'edit') {
+    return {
+      label: 'Member editor',
+      className: 'pill-member-edit',
+      description: `You have signed-in edit access to ${state.currentBoard.name}.`,
+    };
+  }
+
+  if (state.currentUser && state.sharedAccessLevel === 'read') {
+    return {
+      label: 'Member viewer',
+      className: 'pill-member-read',
+      description: `You can view ${state.currentBoard.name} but cannot edit problems.`,
+    };
+  }
+
+  const guestAccess = getGuestAccessForCurrentBoard();
+  if (guestAccess?.level === 'edit') {
+    return {
+      label: 'Guest editor',
+      className: 'pill-guest-edit',
+      description: `You are using a temporary edit code for ${state.currentBoard.name}.`,
+    };
+  }
+
+  if (guestAccess?.level === 'read') {
+    return {
+      label: 'Guest viewer',
+      className: 'pill-guest-read',
+      description: `You are using a temporary read code for ${state.currentBoard.name}.`,
+    };
+  }
+
+  return {
+    label: 'View only',
+    className: 'pill-view-only',
+    description: `This board is visible, but you do not currently have edit access.`,
+  };
+}
+
+function getSelectedProblem() {
+  return state.currentProblems.find((problem) => problem.id === state.selectedProblemId) || null;
+}
+
+function resetProblemForm() {
+  DOM.problemName.value = '';
+  DOM.problemDesc.value = '';
+  DOM.problemGrade.value = '';
+}
+
+function populateProblemForm(problem) {
+  DOM.problemName.value = problem?.name || '';
+  DOM.problemDesc.value = problem?.description || '';
+  DOM.problemGrade.value = problem?.grade || '';
+}
+
+function renderProblemDetails() {
+  const selectedProblem = getSelectedProblem();
+
+  if (state.isPlacementMode) {
+    DOM.problemInfoCard.classList.add('hidden');
+    return;
+  }
+
+  if (!selectedProblem) {
+    DOM.problemInfoCard.classList.add('hidden');
+    editor.clear();
+    return;
+  }
+
+  DOM.problemInfoCard.classList.remove('hidden');
+  DOM.problemGradeDisplay.textContent = selectedProblem.grade || 'Ungraded';
+  DOM.problemInfoName.textContent = selectedProblem.name || 'Untitled problem';
+  DOM.problemDescriptionText.textContent = selectedProblem.description || 'No description yet.';
+  editor.setHolds(selectedProblem.holds || []);
+}
+
+function renderProblemOptions() {
+  const filterValue = DOM.problemSearchInput.value.trim().toLowerCase();
+  const selectedProblem = getSelectedProblem();
+
+  const filteredProblems = [...state.currentProblems]
+    .filter((problem) => {
+      if (!filterValue) return true;
+      const haystack = [problem.name, problem.grade, problem.description].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(filterValue);
+    })
+    .sort((left, right) => {
+      const gradeDiff = gradeValue(left.grade) - gradeValue(right.grade);
+      if (gradeDiff !== 0) return gradeDiff;
+      return (left.name || '').localeCompare(right.name || '');
     });
+
+  DOM.problemSelect.innerHTML = '<option value="">Select a problem</option>';
+  filteredProblems.forEach((problem) => {
+    const option = document.createElement('option');
+    option.value = problem.id;
+    option.textContent = problem.grade ? `${problem.name} (${problem.grade})` : problem.name;
+    DOM.problemSelect.append(option);
+  });
+
+  if (selectedProblem && filteredProblems.some((problem) => problem.id === selectedProblem.id)) {
+    DOM.problemSelect.value = selectedProblem.id;
+  } else {
+    state.selectedProblemId = '';
+    DOM.problemSelect.value = '';
   }
 
-  guestCodeBtn.onclick = async () => {
-    const code = prompt('Enter your board access code:');
-    if (!code) return;
-    try {
-      const codeDoc = await getDoc(doc(db, 'accessCodes', code.trim()));
-      if (!codeDoc.exists()) {
-        alert('Invalid code. No board found for this code.');
-        window.GUEST_LEVEL = null;
-        return;
-      }
-      const { boardId, level: accessLevel } = codeDoc.data();
-      const boardDoc = await getDoc(doc(db, 'boards', boardId));
-      if (!boardDoc.exists()) { alert(`Board with ID '${boardId}' not found for this code.`); return; }
-      const boardData = boardDoc.data();
+  DOM.problemEmptyState.classList.toggle('hidden', !state.currentBoard || state.currentProblems.length > 0);
+  renderProblemDetails();
+  renderShell();
+}
 
-      loadBoard(boardId, boardData);
+function renderBoardList(listElement, boards) {
+  listElement.innerHTML = '';
 
-      if (currentUser && !currentUser.isAnonymous) {
-        if (currentUser.uid !== boardData.ownerUid) {
-          await shareBoardWithUser(boardId, boardData.name, currentUser.uid, currentUser.email, accessLevel, code.trim());
-          alert(`Access to "${boardData.name}" has been saved to your account.`);
-        }
-      } else {
-        window.GUEST_CODE = code.trim();
-        window.GUEST_LEVEL = accessLevel;
-        window.GUEST_BOARD_ID = boardId;
-        window.GUEST_BOARD_NAME = boardData.name;
-        alert(`Access granted to board "${boardData.name}" with ${accessLevel} permissions.`);
-      }
-      updateAuthUI(currentUser);
-    } catch (err) {
-      console.error(err);
-      alert(`Error validating code: ${err.message}`);
-    }
-  };
+  boards.forEach((board) => {
+    const listItem = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.classList.toggle('active', state.currentBoard?.id === board.id);
 
-  let isGeneratingCode = false;
-  const generateAndShowCode = async (level) => {
-    if (isGeneratingCode) return;
-    isGeneratingCode = true;
+    const title = document.createElement('strong');
+    title.textContent = board.name || 'Untitled board';
 
-    if (!boardId) { alert('Please select a board first.'); isGeneratingCode = false; return; }
-    const code = (Math.random().toString(36) + '00000000000000000').slice(2, 8).toUpperCase();
-    try {
-      await addAccessCode(boardId, code, level);
-      prompt(`Share this ${level} code:`, code);
-    } catch (e) {
-      alert(`Could not create code: ${e.message}`);
-    } finally {
-      isGeneratingCode = false;
-    }
-  };
-  generateReadCodeBtn.onclick = () => generateAndShowCode('read');
-  generateEditCodeBtn.onclick = () => generateAndShowCode('edit');
+    const subtitle = document.createElement('span');
+    subtitle.textContent = board.source === 'owned'
+      ? 'Owned by you'
+      : board.level === 'edit'
+        ? 'Shared editor access'
+        : 'Shared viewer access';
 
-  function updateOwnerControls(user, ownerUid){
-    const isOwner = user && !user.isAnonymous && user.uid === ownerUid;
-    boardOwnerControls.classList.toggle('hidden', !isOwner);
-    userAccessControls.classList.toggle('hidden', !isOwner);
+    button.append(title, subtitle);
+    button.addEventListener('click', async () => {
+      await loadBoard(board.id, board);
+      closeSheet(DOM.boardsSheet);
+    });
+
+    listItem.append(button);
+    listElement.append(listItem);
+  });
+}
+
+function renderBoardLists() {
+  DOM.ownedBoardsList.innerHTML = '';
+  DOM.sharedBoardsList.innerHTML = '';
+
+  if (!state.currentUser) {
+    DOM.ownedBoardsSection.classList.add('hidden');
+    DOM.sharedBoardsSection.classList.add('hidden');
+    DOM.boardsListMessage.textContent = 'Sign in to see your saved boards. You can still join any board with a code.';
+    return;
   }
 
-  // ===== Board + Problems =====
-  let ctx, boardId, holds = [], mode = 'start';
+  if (state.ownedBoards.length === 0 && state.sharedBoards.length === 0) {
+    DOM.boardsListMessage.textContent = 'No boards yet. Create your first board or join one with a code.';
+  } else {
+    DOM.boardsListMessage.textContent = 'Open one of your boards, switch to a shared wall, or create a new board.';
+  }
+  DOM.ownedBoardsSection.classList.toggle('hidden', state.ownedBoards.length === 0);
+  DOM.sharedBoardsSection.classList.toggle('hidden', state.sharedBoards.length === 0);
 
-  // Offscreen cache for background sampling (may be blocked by CORS; we handle that)
-  let cacheCanvas = null, cacheCtx = null, canSampleBg = false;
+  renderBoardList(DOM.ownedBoardsList, state.ownedBoards);
+  renderBoardList(DOM.sharedBoardsList, state.sharedBoards);
+}
 
-  async function loadBoard(id, boardData){
-    boardId = id;
-    currentBoardData = boardData;
-    SHARED_ACCESS_LEVEL = null;
-    window.GUEST_LEVEL = window.GUEST_CODE = null;
+function renderSharedUsers(users = []) {
+  DOM.sharedUsersList.innerHTML = '';
+  DOM.sharedUsersEmpty.classList.toggle('hidden', users.length > 0);
 
-    const { imageUrl, ownerUid } = boardData;
-    welcomeMessage.classList.add('hidden');
-    boardContainer.classList.remove('hidden');
-    holds = [];
-    exitPlacementMode();
+  users.forEach((entry) => {
+    const item = document.createElement('li');
+    const copy = document.createElement('div');
+    const email = document.createElement('strong');
+    const level = document.createElement('span');
+    const revokeButton = document.createElement('button');
 
-    // try to enable sampling
-    currentBoard.crossOrigin = 'anonymous';
-    currentBoard.src = imageUrl;
+    email.textContent = entry.email || entry.id;
+    level.textContent = entry.level === 'edit' ? 'Can create, edit, and delete' : 'Read only';
+    revokeButton.type = 'button';
+    revokeButton.textContent = 'Revoke';
+    revokeButton.addEventListener('click', async () => {
+      const confirmed = await showConfirm({
+        title: 'Revoke board access?',
+        body: `Remove ${entry.email || 'this user'} from ${state.currentBoard?.name || 'this board'}?`,
+        confirmLabel: 'Revoke access',
+      });
+      if (!confirmed) return;
 
-    currentBoard.onload = () => {
-      if (!ctx) ctx = canvas.getContext('2d');
-
-      // build offscreen cache
       try {
-        cacheCanvas = document.createElement('canvas');
-        cacheCanvas.width = currentBoard.naturalWidth;
-        cacheCanvas.height = currentBoard.naturalHeight;
-        cacheCtx = cacheCanvas.getContext('2d', { willReadFrequently: true });
-        cacheCtx.drawImage(currentBoard, 0, 0);
-        cacheCtx.getImageData(0, 0, 1, 1); // test read
-        canSampleBg = true;
-      } catch {
-        cacheCanvas = cacheCtx = null;
-        canSampleBg = false;
+        await revokeAccess(state.currentBoard.id, entry.id);
+        showToast('Access revoked.', 'success');
+      } catch (error) {
+        showToast(`Could not revoke access: ${error.message}`, 'error');
       }
-
-      syncCanvasAndRedraw();
-      loadProblems(id);
-    };
-
-    if (currentUser && !currentUser.isAnonymous && currentUser.uid !== ownerUid) {
-      SHARED_ACCESS_LEVEL = await getUserPermissionForBoard(id, currentUser.uid);
-    }
-    updateOwnerControls(currentUser, ownerUid);
-    updateAuthUI(currentUser);
-    editProblemBtn.classList.toggle('hidden', !(canEditCurrentBoard() && !!problemSelect.value));
-    deleteProblemBtn.classList.toggle('hidden', !(canDeleteCurrentBoard() && !!problemSelect.value));
-    if (currentUser && currentUser.uid === ownerUid) loadAndDisplaySharedUsers(id);
-  }
-
-  function syncCanvasAndRedraw(){
-    if (!ctx || !currentBoard.naturalWidth) return;
-    canvas.style.width = `${currentBoard.clientWidth}px`;
-    canvas.style.height = `${currentBoard.clientHeight}px`;
-    canvas.width = currentBoard.naturalWidth;
-    canvas.height = currentBoard.naturalHeight;
-    redraw();
-  }
-
-  async function loadProblems(bid){
-    problemSelect.innerHTML = '<option value="">— Select a problem —</option>';
-    const probs = await getProblemsByBoardId(bid);
-    const gradeValue = (grade) => {
-      if (!grade) return -1;
-      const m = grade.match(/V(\d+)(\+)?/);
-      if (!m) return -1;
-      return parseInt(m[1], 10) + (m[2] ? 0.5 : 0);
-    };
-    probs.sort((a,b)=>gradeValue(a.grade)-gradeValue(b.grade)).forEach(p=>{
-      const o = document.createElement('option');
-      o.value = p.id;
-      o.textContent = p.grade ? `${p.name} (${p.grade})` : p.name;
-      problemSelect.append(o);
     });
+
+    copy.append(email, level);
+    item.append(copy, revokeButton);
+    DOM.sharedUsersList.append(item);
+  });
+}
+
+function renderAccountState() {
+  const loggedIn = Boolean(state.currentUser);
+  DOM.signedOutAccountView.classList.toggle('hidden', loggedIn);
+  DOM.signedInAccountView.classList.toggle('hidden', !loggedIn);
+
+  if (loggedIn) {
+    DOM.signedInEmail.textContent = state.currentUser.email || 'Signed in';
+    DOM.accountStatus.textContent = 'You can create boards, keep shared access between visits, and manage your boards.';
+    return;
   }
 
-  let unsubscribeSharedUsers = null;
-  function loadAndDisplaySharedUsers(boardId){
-    unsubscribeSharedUsers?.();
+  DOM.accountStatus.textContent = 'Sign in to create boards and keep shared boards saved to your account.';
+}
+
+function renderAccessSheet() {
+  if (!state.currentBoard) {
+    DOM.accessSheetTitle.textContent = 'Board access';
+    DOM.accessSheetDescription.textContent = 'Choose a board first to see permissions, guest codes, and members.';
+    DOM.ownerAccessSection.classList.add('hidden');
+    DOM.memberAccessSection.classList.add('hidden');
+    return;
+  }
+
+  const presentation = getAccessPresentation();
+  DOM.accessSheetTitle.textContent = state.currentBoard.name || 'Board access';
+  DOM.accessSheetDescription.textContent = presentation.description;
+
+  if (isOwner()) {
+    DOM.ownerAccessSection.classList.remove('hidden');
+    DOM.memberAccessSection.classList.add('hidden');
+  } else {
+    DOM.ownerAccessSection.classList.add('hidden');
+    DOM.memberAccessSection.classList.remove('hidden');
+    DOM.memberAccessText.textContent = presentation.description;
+  }
+
+  DOM.generatedCodePanel.classList.toggle('hidden', !state.latestGeneratedCode);
+  if (state.latestGeneratedCode) {
+    DOM.generatedCodeValue.textContent = state.latestGeneratedCode.code;
+    DOM.generatedCodeMeta.textContent = `${state.latestGeneratedCode.level.toUpperCase()} code for ${state.currentBoard.name}`;
+  }
+}
+
+function renderShell() {
+  const hasBoard = Boolean(state.currentBoard);
+  const presentation = getAccessPresentation();
+
+  DOM.currentBoardName.textContent = hasBoard ? state.currentBoard.name || 'Untitled board' : 'Choose a board';
+  DOM.welcomeMessage.classList.toggle('hidden', hasBoard);
+  DOM.boardScene.classList.toggle('hidden', !hasBoard);
+  DOM.openAccessBtn.classList.toggle('hidden', !hasBoard);
+  DOM.permissionPill.classList.toggle('hidden', !hasBoard);
+
+  bottomDock.classList.toggle('hidden', !hasBoard);
+
+  if (hasBoard) {
+    setPill(DOM.permissionPill, presentation.label, presentation.className);
+  }
+
+  DOM.browseControls.classList.toggle('hidden', state.isPlacementMode || !hasBoard);
+  DOM.editControls.classList.toggle('hidden', !state.isPlacementMode);
+
+  const hasSelectedProblem = Boolean(state.selectedProblemId);
+  DOM.problemSearchInput.disabled = !hasBoard || state.isPlacementMode;
+  DOM.problemSelect.disabled = !hasBoard || state.isPlacementMode;
+  DOM.newProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || state.isPlacementMode);
+  DOM.editProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
+  DOM.deleteProblemBtn.classList.toggle('hidden', !hasBoard || !canDeleteCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
+
+  renderAccessSheet();
+  renderAccountState();
+}
+
+function stopBoardListeners() {
+  unsubscribeOwnedBoards?.();
+  unsubscribeSharedBoards?.();
+  unsubscribeOwnedBoards = null;
+  unsubscribeSharedBoards = null;
+}
+
+function stopSharedUsersListener() {
+  unsubscribeSharedUsers?.();
+  unsubscribeSharedUsers = null;
+  renderSharedUsers([]);
+}
+
+async function refreshCurrentBoardAccess() {
+  if (!state.currentBoard) {
+    state.sharedAccessLevel = null;
+    return;
+  }
+
+  if (isOwner()) {
+    state.sharedAccessLevel = null;
+    return;
+  }
+
+  if (state.currentUser) {
+    state.sharedAccessLevel = await getUserPermissionForBoard(state.currentBoard.id, state.currentUser.uid);
+    return;
+  }
+
+  state.sharedAccessLevel = null;
+}
+
+async function loadProblems(boardId, { preserveSelected = false } = {}) {
+  const selectedId = preserveSelected ? state.selectedProblemId : '';
+  state.currentProblems = await getProblemsByBoardId(boardId);
+  state.selectedProblemId = selectedId && state.currentProblems.some((problem) => problem.id === selectedId)
+    ? selectedId
+    : '';
+  renderProblemOptions();
+}
+
+async function loadBoardById(boardId, options = {}) {
+  const boardSnap = await getBoard(boardId);
+  if (!boardSnap) {
+    if (getGuestSession()?.boardId === boardId) {
+      clearGuestSession();
+    }
+    clearSelectedBoardId();
+
+    if (state.currentBoard?.id === boardId) {
+      state.currentBoard = null;
+      state.currentProblems = [];
+      state.selectedProblemId = '';
+      editor.clear();
+      renderShell();
+    }
+    return false;
+  }
+
+  await loadBoard(boardSnap.id, { id: boardSnap.id, ...boardSnap.data() }, options);
+  return true;
+}
+
+async function loadBoard(boardId, boardData, options = {}) {
+  state.currentBoard = { ...boardData, id: boardId };
+  state.selectedProblemId = '';
+  state.latestGeneratedCode = null;
+  DOM.problemSearchInput.value = '';
+  setSelectedBoardId(boardId);
+
+  const boardLoadToken = ++state.boardLoadToken;
+  showBoardStatus('Loading board…', 'info');
+
+  DOM.currentBoard.crossOrigin = 'anonymous';
+  DOM.currentBoard.onload = () => {
+    if (boardLoadToken !== state.boardLoadToken) return;
+    editor.syncCanvasToImage();
+  };
+  DOM.currentBoard.onerror = () => {
+    if (boardLoadToken !== state.boardLoadToken) return;
+    showBoardStatus('The board image could not be loaded.', 'error');
+  };
+  DOM.currentBoard.src = boardData.imageUrl;
+
+  await refreshCurrentBoardAccess();
+  await loadProblems(boardId, { preserveSelected: options.preserveSelected });
+  renderProblemDetails();
+  renderShell();
+
+  if (isOwner()) {
+    stopSharedUsersListener();
     unsubscribeSharedUsers = listenForSharedUsers(
       boardId,
       (snapshot) => {
-        sharedUsersList.innerHTML = '';
-        if (snapshot.empty) { sharedUsersList.innerHTML = '<li>Not shared with any users.</li>'; return; }
-        snapshot.forEach(doc => {
-          const li = document.createElement('li');
-          const emailSpan = document.createElement('span');
-          emailSpan.textContent = doc.data().email;
-          const revokeBtn = document.createElement('button');
-          revokeBtn.textContent = 'Revoke';
-          revokeBtn.onclick = async () => {
-            if (confirm(`Revoke access for ${doc.data().email}?`)) await revokeAccess(boardId, doc.id);
-          };
-          li.append(emailSpan, revokeBtn);
-          sharedUsersList.append(li);
-        });
+        const users = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        renderSharedUsers(users);
       },
-      (err) => {
-        console.error('Shared users listener error:', err);
+      (error) => {
+        showToast(`Could not load shared users: ${error.message}`, 'error');
       }
     );
+  } else {
+    stopSharedUsersListener();
   }
 
-  problemSelect.onchange = async () => {
-    const canEdit = canEditCurrentBoard();
-    const canDelete = canDeleteCurrentBoard();
+  showBoardStatus('', 'info');
+}
 
-    editProblemBtn.classList.toggle('hidden', !(canEdit && !!problemSelect.value));
-    deleteProblemBtn.classList.toggle('hidden', !(canDelete && !!problemSelect.value));
-
-    if (problemSelect.value) {
-      const ds = await getDoc(doc(db, `boards/${boardId}/problems/${problemSelect.value}`));
-      const problemData = ds.data();
-      holds = problemData.holds || [];
-      problemGradeDisplay.textContent = problemData.grade || 'Ungraded';
-      problemDescriptionText.textContent = problemData.description || '';
-      problemInfoCard.classList.remove('hidden');
-      redraw();
-    } else {
-      holds = [];
-      problemInfoCard.classList.add('hidden');
-      redraw();
-    }
-  };
-
-  newProblemBtn.onclick = () => {
-    if (!canEditCurrentBoard()) return alert('⚠️ You do not have permission to create problems on this board.');
-    isEditingExistingProblem = false;
-    startPlacementMode(true);
-  };
-
-  editProblemBtn.onclick = async () => {
-    const problemId = problemSelect.value;
-    if (!canEditCurrentBoard() || !problemId) return alert('⚠️ Sign in or enter an edit code & pick a problem first.');
-    try {
-      const problemDoc = await getDoc(doc(db, `boards/${boardId}/problems/${problemId}`));
-      if (!problemDoc.exists()) return alert('Error: Could not find the selected problem to edit.');
-      const problemData = problemDoc.data();
-      problemName.value = problemData.name || '';
-      problemDesc.value = problemData.description || '';
-      problemGrade.value = problemData.grade || '';
-      isEditingExistingProblem = true;
-      startPlacementMode(false);
-    } catch (e) { alert(`❌ Error preparing to edit: ${e.message}`); console.error(e); }
-  };
-
-  deleteProblemBtn.onclick = async () => {
-    const problemId = problemSelect.value;
-    if (!boardId || !problemId) return;
-    const canDelete = canDeleteCurrentBoard();
-    if (!canDelete) return alert('Only signed-in editors can delete problems.');
-    const problemName = problemSelect.options[problemSelect.selectedIndex].text;
-    if (confirm(`Are you sure you want to delete "${problemName}"?`)) {
-      try {
-        await deleteProblem(boardId, problemId);
-        alert('✅ Problem deleted.');
-        holds = []; problemInfoCard.classList.add('hidden'); redraw();
-        await loadProblems(boardId);
-      } catch (e) { alert(`❌ Could not delete problem: ${e.message}`); console.error(e); }
-    }
-  };
-
-  holdBtns.forEach(b => {
-    b.onclick = () => {
-      mode = b.dataset.type;
-      holdBtns.forEach(x => x.classList.toggle('active', x === b));
-      canvas.style.cursor = mode === 'delete' ? 'not-allowed' : 'crosshair';
-    };
-  });
-
-  canvas.onclick = e => {
-    if (!boardMain.classList.contains('editing')) return;
-    const r = canvas.getBoundingClientRect();
-    const x = (e.clientX - r.left) * (canvas.width / r.width);
-    const y = (e.clientY - r.top)  * (canvas.height / r.height);
-    const scale = canvas.width / canvas.clientWidth;
-    if (mode === 'delete') {
-      let best = (12 * scale) ** 2, idx = -1;
-      holds.forEach((h, i) => {
-        const dx = x - h.xRatio * canvas.width;
-        const dy = y - h.yRatio * canvas.height;
-        const d2 = dx*dx + dy*dy;
-        if (d2 < best) { best = d2; idx = i; }
-      });
-      if (idx >= 0) holds.splice(idx, 1);
-    } else {
-      holds.push({ xRatio: x / canvas.width, yRatio: y / canvas.height, type: mode });
-    }
-    redraw();
-  };
-
-  // ===== Pastel markers with same-hue darker ring (clean look) =====
-  const SHOW_LABELS = true; // S/F/1..N labels
-
-  function cssVar(name){
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
-  function hexToRgb(hex){
-    const h = hex.replace('#','').trim();
-    const n = h.length === 3 ? h.split('').map(c=>c+c).join('') : h;
-    const num = parseInt(n, 16);
-    return { r:(num>>16)&255, g:(num>>8)&255, b:num&255 };
-  }
-  function rgba(rgb, a){ return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`; }
-  function darkenRgb(rgb, pct){
-    const p = Math.max(0, Math.min(1, pct));
-    return {
-      r: Math.round(rgb.r * (1 - p)),
-      g: Math.round(rgb.g * (1 - p)),
-      b: Math.round(rgb.b * (1 - p)),
-    };
+async function restoreBoardOnBoot() {
+  const guestSession = getGuestSession();
+  const selectedBoardId = guestSession?.boardId || getSelectedBoardId();
+  if (!selectedBoardId) {
+    renderShell();
+    return;
   }
 
-  function drawMarker(ctx, cx, cy, scale, colorHex, type, label){
-    const baseRGB   = hexToRgb(colorHex);
-    const ringRGB   = darkenRgb(baseRGB, 0.35);  // same hue, darker
-    const textRGB   = darkenRgb(baseRGB, 0.55);  // darker for label
-    const rBase     = (type === 'finish' ? 15 : (type === 'start' ? 14 : 13)) * scale;
-    const ringW     = 5 * scale;
-
-    const fillAlpha = (type === 'hold') ? 0.28 : 0.36; // pastel
-    const ringAlpha = 1.0;
-
-    ctx.save();
-
-    // soft fill
-    ctx.beginPath();
-    ctx.arc(cx, cy, rBase, 0, Math.PI*2);
-    ctx.fillStyle = rgba(baseRGB, fillAlpha);
-    ctx.fill();
-
-    // crisp same-hue ring
-    ctx.beginPath();
-    ctx.arc(cx, cy, rBase, 0, Math.PI*2);
-    ctx.lineWidth   = ringW;
-    ctx.strokeStyle = rgba(ringRGB, ringAlpha);
-    ctx.stroke();
-
-    // optional label
-    if (SHOW_LABELS && label){
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const px = (type === 'hold' ? 11 : 12) * scale;
-      ctx.font = `${px}px Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
-      ctx.fillStyle = rgba(textRGB, 0.98);
-      ctx.fillText(label, cx, cy);
-    }
-
-    ctx.restore();
+  try {
+    await loadBoardById(selectedBoardId, { preserveSelected: true });
+  } catch (error) {
+    console.error(error);
+    showBoardStatus('Could not restore the last board.', 'warning');
   }
+}
 
-  function redraw(){
-    if(!ctx) return;
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+function chooseBoardFromCollectionsIfNeeded() {
+  if (state.currentBoard) return;
 
-    const scale  = canvas.width / canvas.clientWidth;
-    const START  = cssVar('--start-c');
-    const HOLD   = cssVar('--hold-c');
-    const FINISH = cssVar('--finish-c');
+  const preferredBoardId = getSelectedBoardId();
+  const allBoards = [...state.ownedBoards, ...state.sharedBoards];
+  const preferredBoard = allBoards.find((board) => board.id === preferredBoardId);
+  const fallbackBoard = preferredBoard || state.ownedBoards[0] || state.sharedBoards[0];
 
-    let seq = 1;
-    holds.forEach(h=>{
-      const cx = h.xRatio * canvas.width;
-      const cy = h.yRatio * canvas.height;
-      const color = (h.type === 'start') ? START : (h.type === 'hold' ? HOLD : FINISH);
-      const label = (h.type === 'start') ? 'S' : (h.type === 'finish') ? 'F' : String(seq++);
-      drawMarker(ctx, cx, cy, scale, color, h.type, label);
+  if (fallbackBoard) {
+    loadBoard(fallbackBoard.id, fallbackBoard).catch((error) => {
+      showToast(`Could not open board: ${error.message}`, 'error');
     });
   }
-  // ===== End markers =====
+}
 
-  finishDrawBtn.onclick = () => {
-    if (!holds.length) return alert('⚠️ Place at least one hold.');
-    exitPlacementMode();
-    saveProblemBtn.textContent = isEditingExistingProblem ? 'Update' : 'Save';
-    problemSheet.classList.add('visible');
-  };
-  cancelDrawBtn.onclick = () => { holds = []; redraw(); exitPlacementMode(); };
-  cancelSheetBtn.onclick = () => { problemSheet.classList.remove('visible'); exitPlacementMode(); };
+function subscribeToBoards(userId) {
+  stopBoardListeners();
 
-  saveProblemBtn.onclick = async () => {
-    saveProblemBtn.disabled = true;
-    const nm = problemName.value.trim();
-    if (!nm) { alert('⚠️ Name is required.'); saveProblemBtn.disabled = false; return; }
-    if (!canEditCurrentBoard()) { alert('⚠️ You do not have permission to save changes to this problem.'); saveProblemBtn.disabled = false; return; }
+  unsubscribeOwnedBoards = listenForOwnedBoards(
+    userId,
+    (snapshot) => {
+      state.ownedBoards = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        source: 'owned',
+        ...docSnap.data(),
+      }));
+      renderBoardLists();
+      chooseBoardFromCollectionsIfNeeded();
+    },
+    (error) => {
+      console.error(error);
+      DOM.boardsListMessage.textContent = 'Could not load your owned boards.';
+      showToast(`Owned boards failed to load: ${error.message}`, 'error');
+    }
+  );
 
-    try {
-      const problemData = { name: nm, description: problemDesc.value.trim(), holds, grade: problemGrade.value };
-      if (window.GUEST_LEVEL === 'edit' && window.GUEST_CODE) problemData.guestCode = window.GUEST_CODE;
+  unsubscribeSharedBoards = listenForSharedBoards(
+    userId,
+    async (snapshot) => {
+      try {
+        const sharedBoards = await Promise.all(snapshot.docs.map(async (docSnap) => {
+          const sharedData = docSnap.data();
+          const boardSnap = await getBoard(sharedData.boardId);
+          if (!boardSnap) return null;
+          return {
+            id: boardSnap.id,
+            source: 'shared',
+            level: sharedData.level,
+            ...boardSnap.data(),
+          };
+        }));
 
-      if (isEditingExistingProblem) {
-        const problemId = problemSelect.value;
-        if (!problemId) { alert('Error: Could not find problem to update.'); return; }
-        await updateProblem(boardId, problemId, problemData);
-        alert('✅ Problem updated!');
-      } else {
-        if (currentUser && !currentUser.isAnonymous) problemData.ownerUid = currentUser.uid;
-        await addProblem(boardId, problemData);
-        alert('✅ Problem saved!');
+        state.sharedBoards = sharedBoards.filter(Boolean);
+        renderBoardLists();
+        chooseBoardFromCollectionsIfNeeded();
+      } catch (error) {
+        console.error(error);
+        DOM.boardsListMessage.textContent = 'Could not load shared boards.';
+        showToast(`Shared boards failed to load: ${error.message}`, 'error');
       }
-
-      problemSheet.classList.remove('visible');
-      await loadProblems(boardId);
-      isEditingExistingProblem = false;
-      problemSelect.value = '';
-      problemInfoCard.classList.add('hidden');
-      holds = [];
-      redraw();
-    } catch (e) {
-      alert(`❌ ${e.message}`);
-    } finally {
-      saveProblemBtn.disabled = false;
+    },
+    (error) => {
+      console.error(error);
+      DOM.boardsListMessage.textContent = 'Could not load shared boards.';
+      showToast(`Shared boards failed to load: ${error.message}`, 'error');
     }
+  );
+}
+
+async function promoteGuestAccessIfNeeded(user) {
+  const guestSession = getGuestSession();
+  if (!guestSession) return;
+
+  const boardSnap = await getBoard(guestSession.boardId);
+  if (!boardSnap) {
+    clearGuestSession();
+    return;
+  }
+
+  const boardData = boardSnap.data();
+  if (boardData.ownerUid === user.uid) {
+    clearGuestSession();
+    return;
+  }
+
+  await shareBoardWithUser(
+    guestSession.boardId,
+    boardData.name,
+    user.uid,
+    user.email,
+    guestSession.level,
+    guestSession.code
+  );
+
+  clearGuestSession();
+  showToast(`Saved ${boardData.name} to your account.`, 'success');
+}
+
+async function handleAuthStateChange(user) {
+  state.currentUser = user;
+
+  stopBoardListeners();
+  state.ownedBoards = [];
+  state.sharedBoards = [];
+  renderBoardLists();
+
+  try {
+    if (user) {
+      await promoteGuestAccessIfNeeded(user);
+      subscribeToBoards(user.uid);
+    }
+  } catch (error) {
+    console.error(error);
+    showToast(`Could not save guest access: ${error.message}`, 'error');
+  }
+
+  await refreshCurrentBoardAccess();
+  renderShell();
+}
+
+async function handleSignIn() {
+  setButtonBusy(DOM.signInBtn, true, 'Signing in…');
+  try {
+    await signInWithEmail(DOM.emailInput.value, DOM.passwordInput.value);
+    closeSheet(DOM.accountSheet);
+    showToast('Signed in.', 'success');
+  } catch (error) {
+    setInlineStatus(DOM.accountHint, error.message, 'error');
+  } finally {
+    setButtonBusy(DOM.signInBtn, false);
+  }
+}
+
+async function handleCreateAccount() {
+  setButtonBusy(DOM.createAccountBtn, true, 'Creating…');
+  try {
+    await createAccount(DOM.emailInput.value, DOM.passwordInput.value);
+    closeSheet(DOM.accountSheet);
+    showToast('Account created.', 'success');
+  } catch (error) {
+    setInlineStatus(DOM.accountHint, error.message, 'error');
+  } finally {
+    setButtonBusy(DOM.createAccountBtn, false);
+  }
+}
+
+async function handleSignOut() {
+  setButtonBusy(DOM.signOutBtn, true, 'Signing out…');
+  try {
+    await signOutUser();
+    closeSheet(DOM.accountSheet);
+    showToast('Signed out.', 'success');
+  } catch (error) {
+    showToast(`Could not sign out: ${error.message}`, 'error');
+  } finally {
+    setButtonBusy(DOM.signOutBtn, false);
+  }
+}
+
+async function handleCreateBoardSubmit(event) {
+  event.preventDefault();
+
+  if (!state.currentUser) {
+    setInlineStatus(DOM.createBoardStatus, 'Create an account or sign in before creating a board.', 'warning');
+    openSheet(DOM.accountSheet);
+    return;
+  }
+
+  const file = DOM.boardImageInput.files?.[0];
+  const boardName = DOM.boardNameInput.value.trim();
+  if (!boardName || !file) {
+    setInlineStatus(DOM.createBoardStatus, 'Add a board name and choose an image first.', 'warning');
+    return;
+  }
+
+  setButtonBusy(DOM.createBoardSubmitBtn, true, 'Creating…');
+  try {
+    const fileExtension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+    const objectName = `${Date.now()}-${slugify(boardName) || 'board'}.${fileExtension}`;
+    const objectPath = `layouts/${state.currentUser.uid}/${objectName}`;
+    const imageRef = storageRef(storage, objectPath);
+
+    await uploadBytes(imageRef, file);
+    const imageUrl = await getDownloadURL(imageRef);
+    const newBoardRef = await createBoard({
+      name: boardName,
+      imageUrl,
+      ownerUid: state.currentUser.uid,
+    });
+
+    DOM.createBoardForm.reset();
+    DOM.boardImageLabel.textContent = 'Choose an image';
+    setInlineStatus(DOM.createBoardStatus, 'Board created.', 'success');
+    closeSheet(DOM.createBoardSheet);
+    closeSheet(DOM.boardsSheet);
+
+    await loadBoard(newBoardRef.id, {
+      id: newBoardRef.id,
+      name: boardName,
+      imageUrl,
+      ownerUid: state.currentUser.uid,
+      source: 'owned',
+    });
+    showToast(`Created ${boardName}.`, 'success');
+  } catch (error) {
+    setInlineStatus(DOM.createBoardStatus, error.message, 'error');
+  } finally {
+    setButtonBusy(DOM.createBoardSubmitBtn, false);
+  }
+}
+
+async function handleJoinCodeSubmit(event) {
+  event.preventDefault();
+
+  const code = normalizeCode(DOM.joinCodeInput.value);
+  if (!code) {
+    setInlineStatus(DOM.joinCodeStatus, 'Enter a valid board code.', 'warning');
+    return;
+  }
+
+  setButtonBusy(DOM.joinCodeSubmitBtn, true, 'Joining…');
+  try {
+    const codeSnap = await getAccessCode(code);
+    if (!codeSnap) {
+      setInlineStatus(DOM.joinCodeStatus, 'That code was not found.', 'error');
+      return;
+    }
+
+    const { boardId, level } = codeSnap.data();
+    const boardSnap = await getBoard(boardId);
+    if (!boardSnap) {
+      setInlineStatus(DOM.joinCodeStatus, 'This code points to a board that no longer exists.', 'error');
+      return;
+    }
+
+    const boardData = boardSnap.data();
+
+    if (state.currentUser && boardData.ownerUid !== state.currentUser.uid) {
+      await shareBoardWithUser(boardId, boardData.name, state.currentUser.uid, state.currentUser.email, level, code);
+      showToast(`Saved ${boardData.name} to your account.`, 'success');
+      clearGuestSession();
+    } else if (!state.currentUser) {
+      setGuestSession({
+        boardId,
+        boardName: boardData.name,
+        code,
+        level,
+      });
+      showToast(`Joined ${boardData.name} for this session.`, 'success');
+    }
+
+    DOM.joinCodeForm.reset();
+    setInlineStatus(DOM.joinCodeStatus, 'If you sign in first, the board will be saved to your account automatically.', 'info');
+    closeSheet(DOM.joinCodeSheet);
+    closeSheet(DOM.boardsSheet);
+    await loadBoard(boardId, { id: boardId, ...boardData });
+  } catch (error) {
+    setInlineStatus(DOM.joinCodeStatus, error.message, 'error');
+  } finally {
+    setButtonBusy(DOM.joinCodeSubmitBtn, false);
+  }
+}
+
+async function handleGenerateCode(level) {
+  if (!state.currentBoard || !isOwner()) {
+    showToast('Only the board owner can generate access codes.', 'error');
+    return;
+  }
+
+  const code = randomCode();
+  const trigger = level === 'edit' ? DOM.generateEditCodeBtn : DOM.generateReadCodeBtn;
+  setButtonBusy(trigger, true, 'Generating…');
+  try {
+    await addAccessCode(state.currentBoard.id, code, level, state.currentBoard.name, state.currentUser.uid);
+    state.latestGeneratedCode = { code, level };
+    renderAccessSheet();
+    showToast(`${level === 'edit' ? 'Edit' : 'Read'} code created.`, 'success');
+  } catch (error) {
+    showToast(`Could not create code: ${error.message}`, 'error');
+  } finally {
+    setButtonBusy(trigger, false);
+  }
+}
+
+async function copyGeneratedCode() {
+  if (!state.latestGeneratedCode) return;
+  try {
+    await navigator.clipboard.writeText(state.latestGeneratedCode.code);
+    showToast('Code copied.', 'success');
+  } catch (error) {
+    showToast(`Could not copy the code: ${error.message}`, 'error');
+  }
+}
+
+function beginPlacement(mode) {
+  if (!state.currentBoard || !canEditCurrentBoard()) {
+    showToast('You do not have permission to edit problems on this board.', 'error');
+    return;
+  }
+
+  state.problemSheetMode = mode;
+  state.isPlacementMode = true;
+
+  if (mode === 'create') {
+    resetProblemForm();
+    editor.clear();
+  } else {
+    const selectedProblem = getSelectedProblem();
+    if (!selectedProblem) {
+      showToast('Choose a problem to edit first.', 'warning');
+      state.isPlacementMode = false;
+      return;
+    }
+    populateProblemForm(selectedProblem);
+    editor.setHolds(selectedProblem.holds || []);
+  }
+
+  editor.setActive(true);
+  closeAllSheets();
+  renderShell();
+}
+
+function cancelPlacement() {
+  state.isPlacementMode = false;
+  closeSheet(DOM.problemSheet);
+  editor.setActive(false);
+
+  const selectedProblem = getSelectedProblem();
+  if (selectedProblem) {
+    editor.setHolds(selectedProblem.holds || []);
+  } else {
+    editor.clear();
+  }
+
+  renderProblemDetails();
+  renderShell();
+}
+
+function openProblemDetailsSheet() {
+  if (!editor.getHolds().length) {
+    showToast('Place at least one hold before continuing.', 'warning');
+    return;
+  }
+
+  DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Update problem' : 'Save problem';
+  openSheet(DOM.problemSheet);
+}
+
+async function handleSaveProblem() {
+  if (!state.currentBoard || !canEditCurrentBoard()) {
+    showToast('You do not have permission to save this problem.', 'error');
+    return;
+  }
+
+  const name = DOM.problemName.value.trim();
+  if (!name) {
+    showToast('Add a name before saving the problem.', 'warning');
+    return;
+  }
+
+  const problemData = {
+    name,
+    description: DOM.problemDesc.value.trim(),
+    grade: DOM.problemGrade.value,
+    holds: editor.getHolds(),
   };
 
-  function startPlacementMode(isNew){
-    if (isNew){
-      problemSelect.value = '';
-      holds = []; redraw();
-      problemName.value = ''; problemDesc.value = ''; problemGrade.value = '';
-    }
-    boardMain.classList.add('editing');
-    hdrTitle.classList.add('hidden');
-    problemSelect.classList.add('hidden');
-    newProblemBtn.classList.add('hidden');
-    editProblemBtn.classList.add('hidden');
-    deleteProblemBtn.classList.add('hidden');
-    drawControls.classList.remove('hidden');
-    finishDrawBtn.classList.remove('hidden');
-    cancelDrawBtn.classList.remove('hidden');
-    canvas.style.pointerEvents = 'auto';
-    problemSheet.classList.remove('visible');
-  }
-  function exitPlacementMode(){
-    boardMain.classList.remove('editing');
-    hdrTitle.classList.remove('hidden');
-    problemSelect.classList.remove('hidden');
-    const canEdit = canEditCurrentBoard();
-    const canDelete = canDeleteCurrentBoard();
-    newProblemBtn.classList.toggle('hidden', !canEdit);
-    editProblemBtn.classList.toggle('hidden', !(canEdit && !!problemSelect.value));
-    deleteProblemBtn.classList.toggle('hidden', !(canDelete && !!problemSelect.value));
-    drawControls.classList.add('hidden');
-    finishDrawBtn.classList.add('hidden');
-    cancelDrawBtn.classList.add('hidden');
-    canvas.style.pointerEvents = 'none';
+  const guestAccess = getGuestAccessForCurrentBoard();
+  if (guestAccess?.level === 'edit') {
+    problemData.guestCode = guestAccess.code;
   }
 
-  let resizeTimer;
-  window.onresize = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(syncCanvasAndRedraw, 100); };
+  setButtonBusy(DOM.saveProblemBtn, true, state.problemSheetMode === 'edit' ? 'Updating…' : 'Saving…');
+  try {
+    let selectedProblemId = state.selectedProblemId;
+
+    if (state.problemSheetMode === 'edit') {
+      await updateProblem(state.currentBoard.id, selectedProblemId, problemData);
+    } else {
+      if (state.currentUser) {
+        problemData.ownerUid = state.currentUser.uid;
+      }
+      const newProblemRef = await addProblem(state.currentBoard.id, problemData);
+      selectedProblemId = newProblemRef.id;
+    }
+
+    state.isPlacementMode = false;
+    editor.setActive(false);
+    closeSheet(DOM.problemSheet);
+
+    await loadProblems(state.currentBoard.id, { preserveSelected: false });
+    state.selectedProblemId = selectedProblemId;
+    renderProblemOptions();
+    renderProblemDetails();
+    renderShell();
+    showToast(state.problemSheetMode === 'edit' ? 'Problem updated.' : 'Problem saved.', 'success');
+  } catch (error) {
+    showToast(`Could not save the problem: ${error.message}`, 'error');
+  } finally {
+    setButtonBusy(DOM.saveProblemBtn, false);
+  }
+}
+
+async function handleDeleteProblem() {
+  const selectedProblem = getSelectedProblem();
+  if (!selectedProblem || !canDeleteCurrentBoard()) return;
+
+  const confirmed = await showConfirm({
+    title: 'Delete this problem?',
+    body: `Delete ${selectedProblem.name}? This cannot be undone.`,
+    confirmLabel: 'Delete problem',
+  });
+
+  if (!confirmed) return;
+
+  try {
+    await deleteProblem(state.currentBoard.id, selectedProblem.id);
+    state.selectedProblemId = '';
+    await loadProblems(state.currentBoard.id, { preserveSelected: false });
+    renderShell();
+    showToast('Problem deleted.', 'success');
+  } catch (error) {
+    showToast(`Could not delete the problem: ${error.message}`, 'error');
+  }
+}
+
+function bindEvents() {
+  DOM.openBoardsBtn.addEventListener('click', () => openSheet(DOM.boardsSheet));
+  DOM.openAccessBtn.addEventListener('click', () => openSheet(DOM.accessSheet));
+  DOM.openAccountBtn.addEventListener('click', () => openSheet(DOM.accountSheet));
+  DOM.closeBoardsSheetBtn.addEventListener('click', () => closeSheet(DOM.boardsSheet));
+  DOM.closeAccessSheetBtn.addEventListener('click', () => closeSheet(DOM.accessSheet));
+  DOM.closeAccountSheetBtn.addEventListener('click', () => closeSheet(DOM.accountSheet));
+  DOM.closeCreateBoardSheetBtn.addEventListener('click', () => closeSheet(DOM.createBoardSheet));
+  DOM.closeJoinCodeSheetBtn.addEventListener('click', () => closeSheet(DOM.joinCodeSheet));
+  DOM.closeProblemSheetBtn.addEventListener('click', cancelPlacement);
+  DOM.cancelSheetBtn.addEventListener('click', cancelPlacement);
+
+  DOM.welcomeJoinBtn.addEventListener('click', () => openSheet(DOM.joinCodeSheet));
+  DOM.welcomeBoardsBtn.addEventListener('click', () => openSheet(DOM.boardsSheet));
+
+  DOM.createBoardShortcutBtn.addEventListener('click', () => {
+    openSheet(DOM.createBoardSheet);
+    setInlineStatus(
+      DOM.createBoardStatus,
+      state.currentUser ? 'Upload a board image to start creating problems.' : 'You need an account to create a board.',
+      state.currentUser ? 'info' : 'warning'
+    );
+  });
+  DOM.joinBoardShortcutBtn.addEventListener('click', () => openSheet(DOM.joinCodeSheet));
+
+  DOM.signInBtn.addEventListener('click', handleSignIn);
+  DOM.createAccountBtn.addEventListener('click', handleCreateAccount);
+  DOM.signOutBtn.addEventListener('click', handleSignOut);
+
+  DOM.createBoardForm.addEventListener('submit', handleCreateBoardSubmit);
+  DOM.joinCodeForm.addEventListener('submit', handleJoinCodeSubmit);
+  DOM.boardImageInput.addEventListener('change', () => {
+    const file = DOM.boardImageInput.files?.[0];
+    DOM.boardImageLabel.textContent = file ? file.name : 'Choose an image';
+  });
+
+  DOM.generateReadCodeBtn.addEventListener('click', () => handleGenerateCode('read'));
+  DOM.generateEditCodeBtn.addEventListener('click', () => handleGenerateCode('edit'));
+  DOM.copyGeneratedCodeBtn.addEventListener('click', copyGeneratedCode);
+
+  DOM.problemSearchInput.addEventListener('input', renderProblemOptions);
+  DOM.problemSelect.addEventListener('change', () => {
+    state.selectedProblemId = DOM.problemSelect.value;
+    renderProblemDetails();
+    renderShell();
+  });
+  DOM.newProblemBtn.addEventListener('click', () => beginPlacement('create'));
+  DOM.editProblemBtn.addEventListener('click', () => beginPlacement('edit'));
+  DOM.deleteProblemBtn.addEventListener('click', handleDeleteProblem);
+  DOM.finishDrawBtn.addEventListener('click', openProblemDetailsSheet);
+  DOM.cancelDrawBtn.addEventListener('click', cancelPlacement);
+  DOM.saveProblemBtn.addEventListener('click', handleSaveProblem);
+
+  window.addEventListener('resize', () => {
+    editor.syncCanvasToImage();
+  });
+}
+
+async function init() {
+  bindEvents();
+  renderBoardLists();
+  renderShell();
+  await restoreBoardOnBoot();
+  onAuthStateChanged(auth, (user) => {
+    handleAuthStateChange(user).catch((error) => {
+      console.error(error);
+      showToast(`Auth update failed: ${error.message}`, 'error');
+    });
+  });
+}
+
+init().catch((error) => {
+  console.error(error);
+  showBoardStatus('The app could not be initialised.', 'error');
 });
