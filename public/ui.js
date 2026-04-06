@@ -22,6 +22,8 @@ export const DOM = {
   browseControls: by('browseControls'),
   editControls: by('editControls'),
   problemSearchInput: by('problemSearchInput'),
+  problemSearchSummary: by('problemSearchSummary'),
+  problemResultsList: by('problemResultsList'),
   problemSelect: by('problemSelect'),
   newProblemBtn: by('newProblemBtn'),
   editProblemBtn: by('editProblemBtn'),

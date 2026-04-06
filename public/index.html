@@ -64,6 +64,8 @@
         <span>Filter problems</span>
         <input id="problemSearchInput" type="search" placeholder="Search name, grade, notes" />
       </label>
+      <p id="problemSearchSummary" class="section-caption hidden"></p>
+      <div id="problemResultsList" class="problem-results hidden"></div>
       <div class="problem-action-row">
         <label class="field compact-field grow">
           <span>Problem</span>
@@ -71,9 +73,11 @@
             <option value="">Select a problem</option>
           </select>
         </label>
-        <button id="newProblemBtn" class="btn primary hidden">New</button>
-        <button id="editProblemBtn" class="btn hidden">Edit</button>
-        <button id="deleteProblemBtn" class="btn danger hidden">Delete</button>
+        <div class="problem-buttons-row">
+          <button id="newProblemBtn" class="btn primary hidden">New</button>
+          <button id="editProblemBtn" class="btn hidden">Edit</button>
+          <button id="deleteProblemBtn" class="btn danger hidden">Delete</button>
+        </div>
       </div>
     </div>
 

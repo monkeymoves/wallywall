@@ -142,6 +142,8 @@ img {
 
 .app-main {
   height: 100%;
+  display: flex;
+  flex-direction: column;
   padding: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 0.75rem) 1rem calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px) + 1rem);
   overflow: auto;
 }
@@ -314,6 +316,7 @@ select {
   flex-direction: column;
   gap: 0.85rem;
   min-height: 100%;
+  flex: 1;
 }
 
 .board-frame {
@@ -383,12 +386,46 @@ select {
   flex-direction: column;
   gap: 0.75rem;
   backdrop-filter: blur(16px);
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 .problem-action-row {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 0.65rem;
+}
+
+.problem-buttons-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.problem-buttons-row .btn {
+  width: 100%;
+  min-width: 0;
+}
+
+.problem-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.problem-result-btn {
+  min-height: 38px;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.problem-result-btn.active {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(59, 130, 246, 0.16);
 }
 
 .draw-toolbar {
@@ -736,24 +773,91 @@ select {
 
 @media (max-width: 640px) {
   :root {
-    --bottom-h: 178px;
+    --topbar-h: 64px;
+    --bottom-h: 214px;
   }
 
   .topbar {
+    height: var(--topbar-h);
     padding-left: 0.75rem;
     padding-right: 0.75rem;
+    gap: 0.55rem;
   }
 
   .topbar-actions {
     gap: 0.35rem;
   }
 
-  .problem-action-row {
-    flex-wrap: wrap;
+  .topbar-copy h1 {
+    font-size: 0.98rem;
   }
 
-  .problem-action-row > .btn {
-    flex: 1 1 120px;
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .app-main {
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+    padding-top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 0.4rem);
+    padding-bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px) + 0.55rem);
+  }
+
+  .board-scene {
+    gap: 0.5rem;
+  }
+
+  .board-frame {
+    min-height: clamp(500px, calc(100dvh - 275px), 780px);
+    padding: 0.2rem;
+    border-radius: 18px;
+  }
+
+  .problem-info,
+  .problem-empty {
+    padding: 0.8rem 0.9rem;
+  }
+
+  .problem-info-header {
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .problem-action-row {
+    gap: 0.55rem;
+  }
+
+  .compact-field span {
+    font-size: 0.72rem;
+  }
+
+  .problem-buttons-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .problem-buttons-row .btn.danger {
+    grid-column: 1 / -1;
+  }
+
+  .problem-results {
+    max-height: 88px;
+    overflow: auto;
+    padding-right: 0.1rem;
+  }
+
+  .dock-panel {
+    padding: 0.62rem;
+    gap: 0.5rem;
+    border-radius: 18px;
+  }
+
+  .bottom-dock {
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.7rem);
   }
 
   .shortcut-grid {

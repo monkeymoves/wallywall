@@ -52,6 +52,7 @@ const state = {
   currentUser: null,
   currentBoard: null,
   currentProblems: [],
+  filteredProblems: [],
   ownedBoards: [],
   sharedBoards: [],
   selectedProblemId: '',
@@ -222,6 +223,7 @@ function renderProblemOptions() {
       return (left.name || '').localeCompare(right.name || '');
     });
 
+  state.filteredProblems = filteredProblems;
   DOM.problemSelect.innerHTML = '<option value="">Select a problem</option>';
   filteredProblems.forEach((problem) => {
     const option = document.createElement('option');
@@ -235,6 +237,36 @@ function renderProblemOptions() {
   } else {
     state.selectedProblemId = '';
     DOM.problemSelect.value = '';
+  }
+
+  DOM.problemSearchSummary.classList.toggle('hidden', !filterValue);
+  if (filterValue) {
+    DOM.problemSearchSummary.textContent = filteredProblems.length === 0
+      ? 'No problems match that search.'
+      : `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} match.`;
+  } else {
+    DOM.problemSearchSummary.textContent = '';
+  }
+
+  DOM.problemResultsList.innerHTML = '';
+  const showResultsList = Boolean(filterValue);
+  DOM.problemResultsList.classList.toggle('hidden', !showResultsList);
+  if (showResultsList) {
+    filteredProblems.slice(0, 8).forEach((problem) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'problem-result-btn';
+      button.classList.toggle('active', state.selectedProblemId === problem.id);
+      button.textContent = problem.grade ? `${problem.name} (${problem.grade})` : problem.name;
+      button.addEventListener('click', () => {
+        state.selectedProblemId = problem.id;
+        DOM.problemSelect.value = problem.id;
+        renderProblemDetails();
+        renderProblemOptions();
+        renderShell();
+      });
+      DOM.problemResultsList.append(button);
+    });
   }
 
   DOM.problemEmptyState.classList.toggle('hidden', !state.currentBoard || state.currentProblems.length > 0);
