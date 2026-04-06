@@ -41,7 +41,8 @@ import {
   showToast,
 } from './ui.js';
 
-const bottomDock = DOM.browseControls.closest('footer');
+const GRADE_FILTERS = ['all', 'V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13', 'V14', 'V14+'];
+
 const editor = new ProblemEditor({
   canvas: DOM.canvas,
   image: DOM.currentBoard,
@@ -56,6 +57,7 @@ const state = {
   ownedBoards: [],
   sharedBoards: [],
   selectedProblemId: '',
+  selectedGradeFilter: 'all',
   sharedAccessLevel: null,
   isPlacementMode: false,
   problemSheetMode: 'create',
@@ -191,32 +193,37 @@ function renderProblemDetails() {
 
   if (state.isPlacementMode) {
     DOM.problemInfoCard.classList.add('hidden');
+    DOM.currentProblemSummary.classList.remove('hidden');
+    DOM.currentProblemSummary.textContent = state.problemSheetMode === 'edit'
+      ? 'Editing problem'
+      : 'Creating problem';
     return;
   }
 
   if (!selectedProblem) {
     DOM.problemInfoCard.classList.add('hidden');
+    DOM.currentProblemSummary.classList.add('hidden');
+    DOM.currentProblemSummary.textContent = '';
     editor.clear();
     return;
   }
 
   DOM.problemInfoCard.classList.remove('hidden');
+  DOM.currentProblemSummary.classList.remove('hidden');
+  DOM.currentProblemSummary.textContent = selectedProblem.grade
+    ? `${selectedProblem.grade} · ${selectedProblem.name}`
+    : selectedProblem.name || 'Selected problem';
   DOM.problemGradeDisplay.textContent = selectedProblem.grade || 'Ungraded';
   DOM.problemInfoName.textContent = selectedProblem.name || 'Untitled problem';
   DOM.problemDescriptionText.textContent = selectedProblem.description || 'No description yet.';
   editor.setHolds(selectedProblem.holds || []);
 }
 
-function renderProblemOptions() {
-  const filterValue = DOM.problemSearchInput.value.trim().toLowerCase();
+function renderProblemBrowser() {
   const selectedProblem = getSelectedProblem();
 
   const filteredProblems = [...state.currentProblems]
-    .filter((problem) => {
-      if (!filterValue) return true;
-      const haystack = [problem.name, problem.grade, problem.description].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(filterValue);
-    })
+    .filter((problem) => state.selectedGradeFilter === 'all' || problem.grade === state.selectedGradeFilter)
     .sort((left, right) => {
       const gradeDiff = gradeValue(left.grade) - gradeValue(right.grade);
       if (gradeDiff !== 0) return gradeDiff;
@@ -224,46 +231,63 @@ function renderProblemOptions() {
     });
 
   state.filteredProblems = filteredProblems;
-  DOM.problemSelect.innerHTML = '<option value="">Select a problem</option>';
-  filteredProblems.forEach((problem) => {
-    const option = document.createElement('option');
-    option.value = problem.id;
-    option.textContent = problem.grade ? `${problem.name} (${problem.grade})` : problem.name;
-    DOM.problemSelect.append(option);
+
+  DOM.gradeFilterBar.innerHTML = '';
+  GRADE_FILTERS.forEach((grade) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'grade-filter-chip';
+    button.classList.toggle('active', state.selectedGradeFilter === grade);
+    button.textContent = grade === 'all' ? 'All grades' : grade;
+    button.addEventListener('click', () => {
+      state.selectedGradeFilter = grade;
+      renderProblemBrowser();
+    });
+    DOM.gradeFilterBar.append(button);
   });
 
-  if (selectedProblem && filteredProblems.some((problem) => problem.id === selectedProblem.id)) {
-    DOM.problemSelect.value = selectedProblem.id;
-  } else {
-    state.selectedProblemId = '';
-    DOM.problemSelect.value = '';
-  }
-
-  DOM.problemSearchSummary.classList.toggle('hidden', !filterValue);
-  if (filterValue) {
-    DOM.problemSearchSummary.textContent = filteredProblems.length === 0
-      ? 'No problems match that search.'
-      : `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} match.`;
-  } else {
-    DOM.problemSearchSummary.textContent = '';
-  }
+  DOM.problemSearchSummary.textContent = state.selectedGradeFilter === 'all'
+    ? `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} available.`
+    : `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} at ${state.selectedGradeFilter}.`;
 
   DOM.problemResultsList.innerHTML = '';
-  const showResultsList = Boolean(filterValue);
-  DOM.problemResultsList.classList.toggle('hidden', !showResultsList);
-  if (showResultsList) {
-    filteredProblems.slice(0, 8).forEach((problem) => {
+
+  if (selectedProblem && !filteredProblems.some((problem) => problem.id === selectedProblem.id)) {
+    state.selectedProblemId = '';
+  }
+
+  if (filteredProblems.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'sheet-copy';
+    empty.textContent = state.selectedGradeFilter === 'all'
+      ? 'No problems have been added to this board yet.'
+      : `No ${state.selectedGradeFilter} problems on this board yet.`;
+    DOM.problemResultsList.append(empty);
+  } else {
+    filteredProblems.forEach((problem) => {
       const button = document.createElement('button');
+      const meta = document.createElement('div');
+      const title = document.createElement('strong');
+      const grade = document.createElement('span');
+      const note = document.createElement('span');
+
       button.type = 'button';
-      button.className = 'problem-result-btn';
+      button.className = 'problem-browser-item';
       button.classList.toggle('active', state.selectedProblemId === problem.id);
-      button.textContent = problem.grade ? `${problem.name} (${problem.grade})` : problem.name;
+
+      title.textContent = problem.name || 'Untitled problem';
+      grade.textContent = problem.grade || 'Ungraded';
+      note.textContent = problem.description ? problem.description.slice(0, 80) : 'No description';
+      meta.className = 'problem-browser-meta';
+      meta.append(grade, note);
+
+      button.append(title, meta);
       button.addEventListener('click', () => {
         state.selectedProblemId = problem.id;
-        DOM.problemSelect.value = problem.id;
         renderProblemDetails();
-        renderProblemOptions();
+        renderProblemBrowser();
         renderShell();
+        closeSheet(DOM.problemsSheet);
       });
       DOM.problemResultsList.append(button);
     });
@@ -416,19 +440,16 @@ function renderShell() {
   DOM.boardScene.classList.toggle('hidden', !hasBoard);
   DOM.openAccessBtn.classList.toggle('hidden', !hasBoard);
   DOM.permissionPill.classList.toggle('hidden', !hasBoard);
-
-  bottomDock.classList.toggle('hidden', !hasBoard);
+  DOM.openProblemsBtn.classList.toggle('hidden', !hasBoard || state.isPlacementMode);
+  DOM.currentProblemSummary.classList.toggle('hidden', !hasBoard || !DOM.currentProblemSummary.textContent);
 
   if (hasBoard) {
     setPill(DOM.permissionPill, presentation.label, presentation.className);
   }
 
-  DOM.browseControls.classList.toggle('hidden', state.isPlacementMode || !hasBoard);
   DOM.editControls.classList.toggle('hidden', !state.isPlacementMode);
 
   const hasSelectedProblem = Boolean(state.selectedProblemId);
-  DOM.problemSearchInput.disabled = !hasBoard || state.isPlacementMode;
-  DOM.problemSelect.disabled = !hasBoard || state.isPlacementMode;
   DOM.newProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || state.isPlacementMode);
   DOM.editProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
   DOM.deleteProblemBtn.classList.toggle('hidden', !hasBoard || !canDeleteCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
@@ -475,7 +496,7 @@ async function loadProblems(boardId, { preserveSelected = false } = {}) {
   state.selectedProblemId = selectedId && state.currentProblems.some((problem) => problem.id === selectedId)
     ? selectedId
     : '';
-  renderProblemOptions();
+  renderProblemBrowser();
 }
 
 async function loadBoardById(boardId, options = {}) {
@@ -504,7 +525,7 @@ async function loadBoard(boardId, boardData, options = {}) {
   state.currentBoard = { ...boardData, id: boardId };
   state.selectedProblemId = '';
   state.latestGeneratedCode = null;
-  DOM.problemSearchInput.value = '';
+  state.selectedGradeFilter = 'all';
   setSelectedBoardId(boardId);
 
   const boardLoadToken = ++state.boardLoadToken;
@@ -883,12 +904,14 @@ function beginPlacement(mode) {
 
   editor.setActive(true);
   closeAllSheets();
+  DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Update problem' : 'New problem';
+  DOM.problemSheet.classList.remove('hidden');
   renderShell();
 }
 
 function cancelPlacement() {
   state.isPlacementMode = false;
-  closeSheet(DOM.problemSheet);
+  DOM.problemSheet.classList.add('hidden');
   editor.setActive(false);
 
   const selectedProblem = getSelectedProblem();
@@ -900,16 +923,6 @@ function cancelPlacement() {
 
   renderProblemDetails();
   renderShell();
-}
-
-function openProblemDetailsSheet() {
-  if (!editor.getHolds().length) {
-    showToast('Place at least one hold before continuing.', 'warning');
-    return;
-  }
-
-  DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Update problem' : 'Save problem';
-  openSheet(DOM.problemSheet);
 }
 
 async function handleSaveProblem() {
@@ -952,11 +965,11 @@ async function handleSaveProblem() {
 
     state.isPlacementMode = false;
     editor.setActive(false);
-    closeSheet(DOM.problemSheet);
+    DOM.problemSheet.classList.add('hidden');
 
     await loadProblems(state.currentBoard.id, { preserveSelected: false });
     state.selectedProblemId = selectedProblemId;
-    renderProblemOptions();
+    renderProblemBrowser();
     renderProblemDetails();
     renderShell();
     showToast(state.problemSheetMode === 'edit' ? 'Problem updated.' : 'Problem saved.', 'success');
@@ -992,9 +1005,11 @@ async function handleDeleteProblem() {
 
 function bindEvents() {
   DOM.openBoardsBtn.addEventListener('click', () => openSheet(DOM.boardsSheet));
+  DOM.openProblemsBtn.addEventListener('click', () => openSheet(DOM.problemsSheet));
   DOM.openAccessBtn.addEventListener('click', () => openSheet(DOM.accessSheet));
   DOM.openAccountBtn.addEventListener('click', () => openSheet(DOM.accountSheet));
   DOM.closeBoardsSheetBtn.addEventListener('click', () => closeSheet(DOM.boardsSheet));
+  DOM.closeProblemsSheetBtn.addEventListener('click', () => closeSheet(DOM.problemsSheet));
   DOM.closeAccessSheetBtn.addEventListener('click', () => closeSheet(DOM.accessSheet));
   DOM.closeAccountSheetBtn.addEventListener('click', () => closeSheet(DOM.accountSheet));
   DOM.closeCreateBoardSheetBtn.addEventListener('click', () => closeSheet(DOM.createBoardSheet));
@@ -1030,16 +1045,9 @@ function bindEvents() {
   DOM.generateEditCodeBtn.addEventListener('click', () => handleGenerateCode('edit'));
   DOM.copyGeneratedCodeBtn.addEventListener('click', copyGeneratedCode);
 
-  DOM.problemSearchInput.addEventListener('input', renderProblemOptions);
-  DOM.problemSelect.addEventListener('change', () => {
-    state.selectedProblemId = DOM.problemSelect.value;
-    renderProblemDetails();
-    renderShell();
-  });
   DOM.newProblemBtn.addEventListener('click', () => beginPlacement('create'));
   DOM.editProblemBtn.addEventListener('click', () => beginPlacement('edit'));
   DOM.deleteProblemBtn.addEventListener('click', handleDeleteProblem);
-  DOM.finishDrawBtn.addEventListener('click', openProblemDetailsSheet);
   DOM.cancelDrawBtn.addEventListener('click', cancelPlacement);
   DOM.saveProblemBtn.addEventListener('click', handleSaveProblem);
 

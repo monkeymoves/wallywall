@@ -2,9 +2,11 @@ const by = (id) => document.getElementById(id);
 
 export const DOM = {
   openBoardsBtn: by('openBoardsBtn'),
+  openProblemsBtn: by('openProblemsBtn'),
   openAccessBtn: by('openAccessBtn'),
   openAccountBtn: by('openAccountBtn'),
   currentBoardName: by('currentBoardName'),
+  currentProblemSummary: by('currentProblemSummary'),
   permissionPill: by('permissionPill'),
   welcomeMessage: by('welcomeMessage'),
   welcomeJoinBtn: by('welcomeJoinBtn'),
@@ -19,12 +21,10 @@ export const DOM = {
   problemGradeDisplay: by('problemGradeDisplay'),
   problemInfoName: by('problemInfoName'),
   problemDescriptionText: by('problemDescriptionText'),
-  browseControls: by('browseControls'),
   editControls: by('editControls'),
-  problemSearchInput: by('problemSearchInput'),
   problemSearchSummary: by('problemSearchSummary'),
   problemResultsList: by('problemResultsList'),
-  problemSelect: by('problemSelect'),
+  gradeFilterBar: by('gradeFilterBar'),
   newProblemBtn: by('newProblemBtn'),
   editProblemBtn: by('editProblemBtn'),
   deleteProblemBtn: by('deleteProblemBtn'),
@@ -84,6 +84,8 @@ export const DOM = {
   joinCodeInput: by('joinCodeInput'),
   joinCodeStatus: by('joinCodeStatus'),
   joinCodeSubmitBtn: by('joinCodeSubmitBtn'),
+  problemsSheet: by('problemsSheet'),
+  closeProblemsSheetBtn: by('closeProblemsSheetBtn'),
   problemSheet: by('problemSheet'),
   problemSheetTitle: by('problemSheetTitle'),
   closeProblemSheetBtn: by('closeProblemSheetBtn'),
@@ -106,6 +108,7 @@ const sheets = [
   DOM.accountSheet,
   DOM.createBoardSheet,
   DOM.joinCodeSheet,
+  DOM.problemsSheet,
   DOM.problemSheet,
 ].filter(Boolean);
 

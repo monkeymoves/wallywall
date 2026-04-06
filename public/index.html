@@ -16,9 +16,14 @@
     <div class="topbar-copy">
       <p class="eyebrow">WallyWall</p>
       <h1 id="currentBoardName">Choose a board</h1>
+      <p id="currentProblemSummary" class="topbar-subcopy hidden"></p>
     </div>
     <div class="topbar-actions">
       <span id="permissionPill" class="pill hidden"></span>
+      <button id="openProblemsBtn" class="btn topbar-btn hidden">Problems</button>
+      <button id="newProblemBtn" class="icon-btn hidden" aria-label="New problem">＋</button>
+      <button id="editProblemBtn" class="icon-btn hidden" aria-label="Edit problem">✎</button>
+      <button id="deleteProblemBtn" class="icon-btn hidden" aria-label="Delete problem">🗑</button>
       <button id="openAccessBtn" class="icon-btn hidden" aria-label="Open access controls">⋯</button>
       <button id="openAccountBtn" class="icon-btn" aria-label="Open account">◐</button>
     </div>
@@ -57,43 +62,6 @@
       </section>
     </section>
   </main>
-
-  <footer class="bottom-dock">
-    <div id="browseControls" class="dock-panel">
-      <label class="field compact-field">
-        <span>Filter problems</span>
-        <input id="problemSearchInput" type="search" placeholder="Search name, grade, notes" />
-      </label>
-      <p id="problemSearchSummary" class="section-caption hidden"></p>
-      <div id="problemResultsList" class="problem-results hidden"></div>
-      <div class="problem-action-row">
-        <label class="field compact-field grow">
-          <span>Problem</span>
-          <select id="problemSelect">
-            <option value="">Select a problem</option>
-          </select>
-        </label>
-        <div class="problem-buttons-row">
-          <button id="newProblemBtn" class="btn primary hidden">New</button>
-          <button id="editProblemBtn" class="btn hidden">Edit</button>
-          <button id="deleteProblemBtn" class="btn danger hidden">Delete</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="editControls" class="dock-panel hidden">
-      <div id="drawControls" class="draw-toolbar">
-        <button data-type="start" class="hold-btn active">Start</button>
-        <button data-type="hold" class="hold-btn">Hold</button>
-        <button data-type="finish" class="hold-btn">Finish</button>
-        <button data-type="delete" class="hold-btn danger-text">Delete</button>
-      </div>
-      <div class="problem-action-row">
-        <button id="cancelDrawBtn" class="btn">Cancel</button>
-        <button id="finishDrawBtn" class="btn primary">Continue</button>
-      </div>
-    </div>
-  </footer>
 
   <div id="sheetBackdrop" class="sheet-backdrop hidden" aria-hidden="true"></div>
 
@@ -262,6 +230,21 @@
     </div>
   </section>
 
+  <section id="problemsSheet" class="sheet hidden" aria-labelledby="problemsSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Problems</p>
+        <h2 id="problemsSheetTitle">Choose a problem</h2>
+      </div>
+      <button id="closeProblemsSheetBtn" class="icon-btn" aria-label="Close problems sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div id="gradeFilterBar" class="grade-filter-bar"></div>
+      <p id="problemSearchSummary" class="sheet-copy"></p>
+      <div id="problemResultsList" class="problem-browser-list"></div>
+    </div>
+  </section>
+
   <section id="problemSheet" class="sheet hidden" aria-labelledby="problemSheetTitle" aria-modal="true" role="dialog">
     <div class="sheet-header">
       <div>
@@ -301,7 +284,17 @@
           <option>V14+</option>
         </select>
       </label>
+      <div id="editControls" class="sheet-section">
+        <p class="section-caption">Place and remove holds directly on the board, then save here when the problem is ready.</p>
+        <div id="drawControls" class="draw-toolbar">
+          <button data-type="start" class="hold-btn active">Start</button>
+          <button data-type="hold" class="hold-btn">Hold</button>
+          <button data-type="finish" class="hold-btn">Finish</button>
+          <button data-type="delete" class="hold-btn danger-text">Delete</button>
+        </div>
+      </div>
       <div class="button-row wrap end">
+        <button id="cancelDrawBtn" class="btn" type="button">Discard</button>
         <button id="cancelSheetBtn" class="btn" type="button">Cancel</button>
         <button id="saveProblemBtn" class="btn primary" type="button">Save problem</button>
       </div>
