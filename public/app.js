@@ -68,6 +68,7 @@ const state = {
 let unsubscribeOwnedBoards = null;
 let unsubscribeSharedBoards = null;
 let unsubscribeSharedUsers = null;
+let boardResizeObserver = null;
 
 function slugify(value) {
   return value
@@ -231,20 +232,9 @@ function renderProblemBrowser() {
     });
 
   state.filteredProblems = filteredProblems;
-
-  DOM.gradeFilterBar.innerHTML = '';
-  GRADE_FILTERS.forEach((grade) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'grade-filter-chip';
-    button.classList.toggle('active', state.selectedGradeFilter === grade);
-    button.textContent = grade === 'all' ? 'All grades' : grade;
-    button.addEventListener('click', () => {
-      state.selectedGradeFilter = grade;
-      renderProblemBrowser();
-    });
-    DOM.gradeFilterBar.append(button);
-  });
+  DOM.problemGradeFilter.value = GRADE_FILTERS.includes(state.selectedGradeFilter)
+    ? state.selectedGradeFilter
+    : 'all';
 
   DOM.problemSearchSummary.textContent = state.selectedGradeFilter === 'all'
     ? `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} available.`
@@ -404,16 +394,16 @@ function renderAccountState() {
 
 function renderAccessSheet() {
   if (!state.currentBoard) {
-    DOM.accessSheetTitle.textContent = 'Board access';
-    DOM.accessSheetDescription.textContent = 'Choose a board first to see permissions, guest codes, and members.';
+    DOM.boardAccessSection.classList.add('hidden');
+    DOM.boardAccessCaption.textContent = 'Choose a board to see permissions and sharing options.';
     DOM.ownerAccessSection.classList.add('hidden');
     DOM.memberAccessSection.classList.add('hidden');
     return;
   }
 
   const presentation = getAccessPresentation();
-  DOM.accessSheetTitle.textContent = state.currentBoard.name || 'Board access';
-  DOM.accessSheetDescription.textContent = presentation.description;
+  DOM.boardAccessSection.classList.remove('hidden');
+  DOM.boardAccessCaption.textContent = presentation.description;
 
   if (isOwner()) {
     DOM.ownerAccessSection.classList.remove('hidden');
@@ -434,11 +424,11 @@ function renderAccessSheet() {
 function renderShell() {
   const hasBoard = Boolean(state.currentBoard);
   const presentation = getAccessPresentation();
+  document.body.classList.toggle('editing-mode', state.isPlacementMode);
 
   DOM.currentBoardName.textContent = hasBoard ? state.currentBoard.name || 'Untitled board' : 'Choose a board';
   DOM.welcomeMessage.classList.toggle('hidden', hasBoard);
   DOM.boardScene.classList.toggle('hidden', !hasBoard);
-  DOM.openAccessBtn.classList.toggle('hidden', !hasBoard);
   DOM.permissionPill.classList.toggle('hidden', !hasBoard);
   DOM.openProblemsBtn.classList.toggle('hidden', !hasBoard || state.isPlacementMode);
   DOM.currentProblemSummary.classList.toggle('hidden', !hasBoard || !DOM.currentProblemSummary.textContent);
@@ -447,12 +437,18 @@ function renderShell() {
     setPill(DOM.permissionPill, presentation.label, presentation.className);
   }
 
+  DOM.placementHud.classList.toggle('hidden', !state.isPlacementMode);
   DOM.editControls.classList.toggle('hidden', !state.isPlacementMode);
+  DOM.placementModePill.textContent = state.problemSheetMode === 'edit' ? 'Edit mode' : 'Create mode';
 
   const hasSelectedProblem = Boolean(state.selectedProblemId);
   DOM.newProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || state.isPlacementMode);
   DOM.editProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
-  DOM.deleteProblemBtn.classList.toggle('hidden', !hasBoard || !canDeleteCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
+  DOM.deleteProblemBtn.classList.add('hidden');
+  DOM.deleteProblemSheetBtn.classList.toggle(
+    'hidden',
+    !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentBoard()
+  );
 
   renderAccessSheet();
   renderAccountState();
@@ -904,14 +900,24 @@ function beginPlacement(mode) {
 
   editor.setActive(true);
   closeAllSheets();
-  DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Update problem' : 'New problem';
-  DOM.problemSheet.classList.remove('hidden');
+  DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Problem details' : 'New problem';
+  DOM.problemMetaPanel.open = state.problemSheetMode === 'create';
   renderShell();
+}
+
+function openProblemDetails() {
+  if (!state.isPlacementMode) return;
+  DOM.problemMetaPanel.open = true;
+  openSheet(DOM.problemSheet);
+}
+
+function closeProblemDetails() {
+  closeSheet(DOM.problemSheet);
 }
 
 function cancelPlacement() {
   state.isPlacementMode = false;
-  DOM.problemSheet.classList.add('hidden');
+  closeSheet(DOM.problemSheet);
   editor.setActive(false);
 
   const selectedProblem = getSelectedProblem();
@@ -965,7 +971,7 @@ async function handleSaveProblem() {
 
     state.isPlacementMode = false;
     editor.setActive(false);
-    DOM.problemSheet.classList.add('hidden');
+    closeSheet(DOM.problemSheet);
 
     await loadProblems(state.currentBoard.id, { preserveSelected: false });
     state.selectedProblemId = selectedProblemId;
@@ -984,6 +990,15 @@ async function handleDeleteProblem() {
   const selectedProblem = getSelectedProblem();
   if (!selectedProblem || !canDeleteCurrentBoard()) return;
 
+  const firstConfirmed = await showConfirm({
+    title: 'Delete problem?',
+    body: `You are about to remove ${selectedProblem.name}. Continue to the final delete confirmation?`,
+    confirmLabel: 'Continue',
+    confirmTone: 'danger',
+  });
+
+  if (!firstConfirmed) return;
+
   const confirmed = await showConfirm({
     title: 'Delete this problem?',
     body: `Delete ${selectedProblem.name}? This cannot be undone.`,
@@ -994,6 +1009,9 @@ async function handleDeleteProblem() {
 
   try {
     await deleteProblem(state.currentBoard.id, selectedProblem.id);
+    state.isPlacementMode = false;
+    editor.setActive(false);
+    DOM.problemSheet.classList.add('hidden');
     state.selectedProblemId = '';
     await loadProblems(state.currentBoard.id, { preserveSelected: false });
     renderShell();
@@ -1006,16 +1024,18 @@ async function handleDeleteProblem() {
 function bindEvents() {
   DOM.openBoardsBtn.addEventListener('click', () => openSheet(DOM.boardsSheet));
   DOM.openProblemsBtn.addEventListener('click', () => openSheet(DOM.problemsSheet));
-  DOM.openAccessBtn.addEventListener('click', () => openSheet(DOM.accessSheet));
   DOM.openAccountBtn.addEventListener('click', () => openSheet(DOM.accountSheet));
   DOM.closeBoardsSheetBtn.addEventListener('click', () => closeSheet(DOM.boardsSheet));
   DOM.closeProblemsSheetBtn.addEventListener('click', () => closeSheet(DOM.problemsSheet));
-  DOM.closeAccessSheetBtn.addEventListener('click', () => closeSheet(DOM.accessSheet));
   DOM.closeAccountSheetBtn.addEventListener('click', () => closeSheet(DOM.accountSheet));
   DOM.closeCreateBoardSheetBtn.addEventListener('click', () => closeSheet(DOM.createBoardSheet));
   DOM.closeJoinCodeSheetBtn.addEventListener('click', () => closeSheet(DOM.joinCodeSheet));
-  DOM.closeProblemSheetBtn.addEventListener('click', cancelPlacement);
-  DOM.cancelSheetBtn.addEventListener('click', cancelPlacement);
+  DOM.closeProblemSheetBtn.addEventListener('click', closeProblemDetails);
+  DOM.cancelSheetBtn.addEventListener('click', closeProblemDetails);
+  DOM.problemGradeFilter.addEventListener('change', (event) => {
+    state.selectedGradeFilter = event.target.value || 'all';
+    renderProblemBrowser();
+  });
 
   DOM.welcomeJoinBtn.addEventListener('click', () => openSheet(DOM.joinCodeSheet));
   DOM.welcomeBoardsBtn.addEventListener('click', () => openSheet(DOM.boardsSheet));
@@ -1047,9 +1067,12 @@ function bindEvents() {
 
   DOM.newProblemBtn.addEventListener('click', () => beginPlacement('create'));
   DOM.editProblemBtn.addEventListener('click', () => beginPlacement('edit'));
+  DOM.openProblemDetailsBtn.addEventListener('click', openProblemDetails);
   DOM.deleteProblemBtn.addEventListener('click', handleDeleteProblem);
+  DOM.deleteProblemSheetBtn.addEventListener('click', handleDeleteProblem);
   DOM.cancelDrawBtn.addEventListener('click', cancelPlacement);
   DOM.saveProblemBtn.addEventListener('click', handleSaveProblem);
+  DOM.saveProblemDetailsBtn.addEventListener('click', handleSaveProblem);
 
   window.addEventListener('resize', () => {
     editor.syncCanvasToImage();
@@ -1058,6 +1081,13 @@ function bindEvents() {
 
 async function init() {
   bindEvents();
+  if ('ResizeObserver' in window) {
+    boardResizeObserver = new ResizeObserver(() => {
+      editor.syncCanvasToImage();
+    });
+    boardResizeObserver.observe(DOM.boardFrame);
+    boardResizeObserver.observe(DOM.currentBoard);
+  }
   renderBoardLists();
   renderShell();
   await restoreBoardOnBoot();

@@ -45,3 +45,26 @@
 - Tightened the top bar and bottom tray spacing.
 - Changed the problem action layout so buttons stack cleanly on narrow screens.
 - Added a visible filtered-results row so search is still usable even when the select is not expanded.
+
+### Board Overlay And Editing Fixes
+- Fixed the board overlay so problem markers track the rendered board image instead of drifting into letterboxed margins.
+- Added resize resync logic so marker placement stays aligned across screen sizes and orientation changes.
+- Changed problem browsing to a simple grade-only filter in the Problems sheet.
+- Moved delete out of the top bar and behind in-app confirmation.
+
+### Mobile Board Layout Fixes
+- Anchored the board to the top of the mobile viewport instead of centering it with dead space above.
+- Let the board image use more of the available width on phones.
+- Moved selected problem details below the board on mobile instead of floating over the image.
+
+### Placement-First Editing Flow
+- Split read mode from placement mode so entering edit/create no longer opens a large form over the board by default.
+- Added a clear visual edit-state treatment to the board frame and top bar.
+- Added floating hold-placement controls directly over the board during editing.
+- Moved problem metadata editing behind an explicit `Details` action so hold placement stays visible.
+
+### Navigation And Safety Cleanup
+- Replaced the ambiguous top-bar management affordance with clearer labeled actions.
+- Merged board switching and board access controls into a single Boards sheet to reduce top-bar clutter.
+- Turned the problem details sheet into a proper editor with `Save`, `Close details`, and `Delete problem`.
+- Added a second confirmation step before final problem deletion.

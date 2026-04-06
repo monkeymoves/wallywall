@@ -77,6 +77,8 @@ export class ProblemEditor {
 
   syncCanvasToImage() {
     if (!this.image.naturalWidth || !this.image.clientWidth) return;
+    this.canvas.style.left = '0px';
+    this.canvas.style.top = '0px';
     this.canvas.style.width = `${this.image.clientWidth}px`;
     this.canvas.style.height = `${this.image.clientHeight}px`;
     this.canvas.width = this.image.naturalWidth;

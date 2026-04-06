@@ -12,7 +12,7 @@
 </head>
 <body class="dark-theme">
   <header class="topbar">
-    <button id="openBoardsBtn" class="icon-btn" aria-label="Open boards">☰</button>
+    <button id="openBoardsBtn" class="btn topbar-btn" aria-label="Open boards">Boards</button>
     <div class="topbar-copy">
       <p class="eyebrow">WallyWall</p>
       <h1 id="currentBoardName">Choose a board</h1>
@@ -24,7 +24,6 @@
       <button id="newProblemBtn" class="icon-btn hidden" aria-label="New problem">＋</button>
       <button id="editProblemBtn" class="icon-btn hidden" aria-label="Edit problem">✎</button>
       <button id="deleteProblemBtn" class="icon-btn hidden" aria-label="Delete problem">🗑</button>
-      <button id="openAccessBtn" class="icon-btn hidden" aria-label="Open access controls">⋯</button>
       <button id="openAccountBtn" class="icon-btn" aria-label="Open account">◐</button>
     </div>
   </header>
@@ -44,8 +43,28 @@
 
     <section id="boardScene" class="board-scene hidden">
       <div class="board-frame">
-        <img id="currentBoard" alt="Climbing board" />
-        <canvas id="overlayCanvas"></canvas>
+        <div class="board-media">
+          <img id="currentBoard" alt="Climbing board" />
+          <canvas id="overlayCanvas"></canvas>
+        </div>
+        <div id="placementHud" class="placement-hud hidden">
+          <div class="placement-hud-row">
+            <span id="placementModePill" class="pill accent">Edit mode</span>
+            <button id="openProblemDetailsBtn" class="btn topbar-btn" type="button">Details</button>
+          </div>
+          <div id="editControls" class="placement-controls">
+            <div id="drawControls" class="draw-toolbar">
+              <button data-type="start" class="hold-btn active">Start</button>
+              <button data-type="hold" class="hold-btn">Hold</button>
+              <button data-type="finish" class="hold-btn">Finish</button>
+              <button data-type="delete" class="hold-btn danger-text">Delete</button>
+            </div>
+            <div class="placement-actions">
+              <button id="cancelDrawBtn" class="btn" type="button">Discard</button>
+              <button id="saveProblemBtn" class="btn primary" type="button">Save</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <section id="problemEmptyState" class="card problem-empty hidden">
@@ -105,45 +124,39 @@
         </div>
         <ul id="sharedBoardsList" class="board-list"></ul>
       </section>
-    </div>
-  </section>
 
-  <section id="accessSheet" class="sheet hidden" aria-labelledby="accessSheetTitle" aria-modal="true" role="dialog">
-    <div class="sheet-header">
-      <div>
-        <p class="eyebrow">Access</p>
-        <h2 id="accessSheetTitle">Board access</h2>
-      </div>
-      <button id="closeAccessSheetBtn" class="icon-btn" aria-label="Close access sheet">✕</button>
-    </div>
-    <div class="sheet-body">
-      <p id="accessSheetDescription" class="sheet-copy">Choose a board to see permissions and sharing options.</p>
-
-      <section id="ownerAccessSection" class="sheet-section hidden">
-        <h3>Guest codes</h3>
-        <div class="button-row wrap">
-          <button id="generateReadCodeBtn" class="btn">Generate read code</button>
-          <button id="generateEditCodeBtn" class="btn primary">Generate edit code</button>
+      <section id="boardAccessSection" class="sheet-section hidden">
+        <div class="section-heading-row">
+          <h3>Board access</h3>
+          <span id="boardAccessCaption" class="section-caption">Choose a board to see permissions and sharing options.</span>
         </div>
-        <div id="generatedCodePanel" class="generated-code hidden">
-          <div>
-            <p class="generated-code-label">Latest code</p>
-            <strong id="generatedCodeValue">------</strong>
-            <p id="generatedCodeMeta" class="section-caption"></p>
+
+        <section id="ownerAccessSection" class="sheet-section hidden">
+          <h3>Guest codes</h3>
+          <div class="button-row wrap">
+            <button id="generateReadCodeBtn" class="btn">Generate read code</button>
+            <button id="generateEditCodeBtn" class="btn primary">Generate edit code</button>
           </div>
-          <button id="copyGeneratedCodeBtn" class="btn">Copy</button>
-        </div>
+          <div id="generatedCodePanel" class="generated-code hidden">
+            <div>
+              <p class="generated-code-label">Latest code</p>
+              <strong id="generatedCodeValue">------</strong>
+              <p id="generatedCodeMeta" class="section-caption"></p>
+            </div>
+            <button id="copyGeneratedCodeBtn" class="btn">Copy</button>
+          </div>
 
-        <div class="section-heading-row shared-users-heading">
-          <h3>Shared users</h3>
-          <span id="sharedUsersEmpty" class="section-caption">No signed-in members on this board yet.</span>
-        </div>
-        <ul id="sharedUsersList" class="shared-users-list"></ul>
-      </section>
+          <div class="section-heading-row shared-users-heading">
+            <h3>Shared users</h3>
+            <span id="sharedUsersEmpty" class="section-caption">No signed-in members on this board yet.</span>
+          </div>
+          <ul id="sharedUsersList" class="shared-users-list"></ul>
+        </section>
 
-      <section id="memberAccessSection" class="sheet-section hidden">
-        <h3>Your access</h3>
-        <p id="memberAccessText" class="sheet-copy"></p>
+        <section id="memberAccessSection" class="sheet-section hidden">
+          <h3>Your access</h3>
+          <p id="memberAccessText" class="sheet-copy"></p>
+        </section>
       </section>
     </div>
   </section>
@@ -239,33 +252,10 @@
       <button id="closeProblemsSheetBtn" class="icon-btn" aria-label="Close problems sheet">✕</button>
     </div>
     <div class="sheet-body">
-      <div id="gradeFilterBar" class="grade-filter-bar"></div>
-      <p id="problemSearchSummary" class="sheet-copy"></p>
-      <div id="problemResultsList" class="problem-browser-list"></div>
-    </div>
-  </section>
-
-  <section id="problemSheet" class="sheet hidden" aria-labelledby="problemSheetTitle" aria-modal="true" role="dialog">
-    <div class="sheet-header">
-      <div>
-        <p class="eyebrow">Problem</p>
-        <h2 id="problemSheetTitle">Problem details</h2>
-      </div>
-      <button id="closeProblemSheetBtn" class="icon-btn" aria-label="Close problem details sheet">✕</button>
-    </div>
-    <div class="sheet-body">
-      <label class="field">
-        <span>Problem name</span>
-        <input id="problemName" placeholder="Evening warm-up" />
-      </label>
-      <label class="field">
-        <span>Description</span>
-        <textarea id="problemDesc" placeholder="Optional notes, beta, setters, or feet rules"></textarea>
-      </label>
-      <label class="field">
+      <label class="field problem-filter-field">
         <span>Grade</span>
-        <select id="problemGrade">
-          <option value="">Select grade</option>
+        <select id="problemGradeFilter">
+          <option value="all">All grades</option>
           <option>V0</option>
           <option>V1</option>
           <option>V2</option>
@@ -284,19 +274,59 @@
           <option>V14+</option>
         </select>
       </label>
-      <div id="editControls" class="sheet-section">
-        <p class="section-caption">Place and remove holds directly on the board, then save here when the problem is ready.</p>
-        <div id="drawControls" class="draw-toolbar">
-          <button data-type="start" class="hold-btn active">Start</button>
-          <button data-type="hold" class="hold-btn">Hold</button>
-          <button data-type="finish" class="hold-btn">Finish</button>
-          <button data-type="delete" class="hold-btn danger-text">Delete</button>
-        </div>
+      <p id="problemSearchSummary" class="sheet-copy"></p>
+      <div id="problemResultsList" class="problem-browser-list"></div>
+    </div>
+  </section>
+
+  <section id="problemSheet" class="sheet hidden" aria-labelledby="problemSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Problem</p>
+        <h2 id="problemSheetTitle">Problem details</h2>
       </div>
+      <button id="closeProblemSheetBtn" class="icon-btn" aria-label="Close problem details sheet">✕</button>
+    </div>
+    <div class="sheet-body">
+      <details id="problemMetaPanel" class="problem-meta-panel" open>
+        <summary>Problem details</summary>
+        <div class="problem-meta-fields">
+          <label class="field">
+            <span>Problem name</span>
+            <input id="problemName" placeholder="Evening warm-up" />
+          </label>
+          <label class="field">
+            <span>Description</span>
+            <textarea id="problemDesc" placeholder="Optional notes, beta, setters, or feet rules"></textarea>
+          </label>
+          <label class="field">
+            <span>Grade</span>
+            <select id="problemGrade">
+              <option value="">Select grade</option>
+              <option>V0</option>
+              <option>V1</option>
+              <option>V2</option>
+              <option>V3</option>
+              <option>V4</option>
+              <option>V5</option>
+              <option>V6</option>
+              <option>V7</option>
+              <option>V8</option>
+              <option>V9</option>
+              <option>V10</option>
+              <option>V11</option>
+              <option>V12</option>
+              <option>V13</option>
+              <option>V14</option>
+              <option>V14+</option>
+            </select>
+          </label>
+        </div>
+      </details>
       <div class="button-row wrap end">
-        <button id="cancelDrawBtn" class="btn" type="button">Discard</button>
-        <button id="cancelSheetBtn" class="btn" type="button">Cancel</button>
-        <button id="saveProblemBtn" class="btn primary" type="button">Save problem</button>
+        <button id="saveProblemDetailsBtn" class="btn primary" type="button">Save</button>
+        <button id="cancelSheetBtn" class="btn" type="button">Close details</button>
+        <button id="deleteProblemSheetBtn" class="btn danger hidden" type="button">Delete problem</button>
       </div>
     </div>
   </section>
