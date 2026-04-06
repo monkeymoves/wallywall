@@ -68,3 +68,13 @@
 - Merged board switching and board access controls into a single Boards sheet to reduce top-bar clutter.
 - Turned the problem details sheet into a proper editor with `Save`, `Close details`, and `Delete problem`.
 - Added a second confirmation step before final problem deletion.
+
+### UI Polish And Editing Workflow Refinement
+- Refined the visual system with softer glass/charcoal surfaces, lighter borders, stronger hierarchy, and semantic edit tool colors.
+- Tightened the header so board name and current problem metadata read more clearly at a glance.
+- Changed create-mode guidance so the board remains the main workspace and metadata is deferred until needed.
+- Moved the edit controls back into a compact bottom dock inside the board frame so they stay anchored during editing.
+- Made placement hints transient and dismiss them as soon as the user interacts with the board or tool buttons.
+- Removed the top-right `Step 2` overlay from the board to keep holds visible.
+- Moved `Details` into the bottom action rail alongside the main editing actions.
+- Separated delete into its own row in the details sheet and ensured confirmation dialogs layer cleanly above sheets.

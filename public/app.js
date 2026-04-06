@@ -63,12 +63,15 @@ const state = {
   problemSheetMode: 'create',
   latestGeneratedCode: null,
   boardLoadToken: 0,
+  placementHintMessage: '',
+  showPlacementHint: false,
 };
 
 let unsubscribeOwnedBoards = null;
 let unsubscribeSharedBoards = null;
 let unsubscribeSharedUsers = null;
 let boardResizeObserver = null;
+let placementHintTimeout = null;
 
 function slugify(value) {
   return value
@@ -175,6 +178,40 @@ function getAccessPresentation() {
 
 function getSelectedProblem() {
   return state.currentProblems.find((problem) => problem.id === state.selectedProblemId) || null;
+}
+
+function clearPlacementHintTimer() {
+  if (placementHintTimeout) {
+    window.clearTimeout(placementHintTimeout);
+    placementHintTimeout = null;
+  }
+}
+
+function hidePlacementHint() {
+  clearPlacementHintTimer();
+  state.showPlacementHint = false;
+  if (DOM.placementHint) {
+    DOM.placementHint.classList.add('hidden');
+    DOM.placementHint.textContent = '';
+  }
+}
+
+function showPlacementHint(message, timeoutMs = 1600) {
+  clearPlacementHintTimer();
+  state.placementHintMessage = message;
+  state.showPlacementHint = true;
+  if (DOM.placementHint) {
+    DOM.placementHint.textContent = message;
+    DOM.placementHint.classList.remove('hidden');
+  }
+
+  placementHintTimeout = window.setTimeout(() => {
+    state.showPlacementHint = false;
+    if (DOM.placementHint) {
+      DOM.placementHint.classList.add('hidden');
+    }
+    placementHintTimeout = null;
+  }, timeoutMs);
 }
 
 function resetProblemForm() {
@@ -439,13 +476,22 @@ function renderShell() {
 
   DOM.placementHud.classList.toggle('hidden', !state.isPlacementMode);
   DOM.editControls.classList.toggle('hidden', !state.isPlacementMode);
-  DOM.placementModePill.textContent = state.problemSheetMode === 'edit' ? 'Edit mode' : 'Create mode';
+  const isCreateMode = state.problemSheetMode === 'create';
+  DOM.placementModePill.textContent = isCreateMode ? 'Creating problem' : 'Editing holds';
+  DOM.openProblemDetailsBtn.textContent = isCreateMode ? 'Name & grade' : 'Details';
+  DOM.openProblemDetailsBtn.classList.toggle('primary', false);
+  DOM.placementHint.classList.toggle('hidden', !state.isPlacementMode || !state.showPlacementHint);
+  DOM.placementHint.textContent = state.showPlacementHint ? state.placementHintMessage : '';
 
   const hasSelectedProblem = Boolean(state.selectedProblemId);
   DOM.newProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || state.isPlacementMode);
   DOM.editProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
   DOM.deleteProblemBtn.classList.add('hidden');
   DOM.deleteProblemSheetBtn.classList.toggle(
+    'hidden',
+    !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentBoard()
+  );
+  DOM.deleteProblemRow.classList.toggle(
     'hidden',
     !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentBoard()
   );
@@ -901,12 +947,18 @@ function beginPlacement(mode) {
   editor.setActive(true);
   closeAllSheets();
   DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Problem details' : 'New problem';
-  DOM.problemMetaPanel.open = state.problemSheetMode === 'create';
+  DOM.problemMetaPanel.open = false;
+  showPlacementHint(
+    state.problemSheetMode === 'create'
+      ? 'Step 1: place the holds. Step 2: add the name and grade. Step 3: save.'
+      : 'Update holds here, or open details to change the name, notes, and grade.'
+  );
   renderShell();
 }
 
 function openProblemDetails() {
   if (!state.isPlacementMode) return;
+  hidePlacementHint();
   DOM.problemMetaPanel.open = true;
   openSheet(DOM.problemSheet);
 }
@@ -917,6 +969,7 @@ function closeProblemDetails() {
 
 function cancelPlacement() {
   state.isPlacementMode = false;
+  hidePlacementHint();
   closeSheet(DOM.problemSheet);
   editor.setActive(false);
 
@@ -939,7 +992,13 @@ async function handleSaveProblem() {
 
   const name = DOM.problemName.value.trim();
   if (!name) {
-    showToast('Add a name before saving the problem.', 'warning');
+    openProblemDetails();
+    showToast('Add a name and grade before saving the problem.', 'warning');
+    return;
+  }
+  if (!DOM.problemGrade.value) {
+    openProblemDetails();
+    showToast('Choose a grade before saving the problem.', 'warning');
     return;
   }
 
@@ -955,7 +1014,9 @@ async function handleSaveProblem() {
     problemData.guestCode = guestAccess.code;
   }
 
-  setButtonBusy(DOM.saveProblemBtn, true, state.problemSheetMode === 'edit' ? 'Updating…' : 'Saving…');
+  const busyLabel = state.problemSheetMode === 'edit' ? 'Updating…' : 'Saving…';
+  setButtonBusy(DOM.saveProblemBtn, true, busyLabel);
+  setButtonBusy(DOM.saveProblemDetailsBtn, true, busyLabel);
   try {
     let selectedProblemId = state.selectedProblemId;
 
@@ -970,6 +1031,7 @@ async function handleSaveProblem() {
     }
 
     state.isPlacementMode = false;
+    hidePlacementHint();
     editor.setActive(false);
     closeSheet(DOM.problemSheet);
 
@@ -983,12 +1045,15 @@ async function handleSaveProblem() {
     showToast(`Could not save the problem: ${error.message}`, 'error');
   } finally {
     setButtonBusy(DOM.saveProblemBtn, false);
+    setButtonBusy(DOM.saveProblemDetailsBtn, false);
   }
 }
 
 async function handleDeleteProblem() {
   const selectedProblem = getSelectedProblem();
   if (!selectedProblem || !canDeleteCurrentBoard()) return;
+
+  closeSheet(DOM.problemSheet);
 
   const firstConfirmed = await showConfirm({
     title: 'Delete problem?',
@@ -1010,8 +1075,9 @@ async function handleDeleteProblem() {
   try {
     await deleteProblem(state.currentBoard.id, selectedProblem.id);
     state.isPlacementMode = false;
+    hidePlacementHint();
     editor.setActive(false);
-    DOM.problemSheet.classList.add('hidden');
+    closeSheet(DOM.problemSheet);
     state.selectedProblemId = '';
     await loadProblems(state.currentBoard.id, { preserveSelected: false });
     renderShell();
@@ -1073,6 +1139,14 @@ function bindEvents() {
   DOM.cancelDrawBtn.addEventListener('click', cancelPlacement);
   DOM.saveProblemBtn.addEventListener('click', handleSaveProblem);
   DOM.saveProblemDetailsBtn.addEventListener('click', handleSaveProblem);
+  DOM.holdBtns.forEach((button) => {
+    button.addEventListener('click', hidePlacementHint);
+  });
+  DOM.canvas.addEventListener('click', () => {
+    if (state.isPlacementMode) {
+      hidePlacementHint();
+    }
+  });
 
   window.addEventListener('resize', () => {
     editor.syncCanvasToImage();

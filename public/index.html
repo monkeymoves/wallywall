@@ -47,11 +47,12 @@
           <img id="currentBoard" alt="Climbing board" />
           <canvas id="overlayCanvas"></canvas>
         </div>
+
         <div id="placementHud" class="placement-hud hidden">
           <div class="placement-hud-row">
             <span id="placementModePill" class="pill accent">Edit mode</span>
-            <button id="openProblemDetailsBtn" class="btn topbar-btn" type="button">Details</button>
           </div>
+          <p id="placementHint" class="placement-hint hidden"></p>
           <div id="editControls" class="placement-controls">
             <div id="drawControls" class="draw-toolbar">
               <button data-type="start" class="hold-btn active">Start</button>
@@ -60,6 +61,7 @@
               <button data-type="delete" class="hold-btn danger-text">Delete</button>
             </div>
             <div class="placement-actions">
+              <button id="openProblemDetailsBtn" class="btn" type="button">Details</button>
               <button id="cancelDrawBtn" class="btn" type="button">Discard</button>
               <button id="saveProblemBtn" class="btn primary" type="button">Save</button>
             </div>
@@ -326,7 +328,9 @@
       <div class="button-row wrap end">
         <button id="saveProblemDetailsBtn" class="btn primary" type="button">Save</button>
         <button id="cancelSheetBtn" class="btn" type="button">Close details</button>
-        <button id="deleteProblemSheetBtn" class="btn danger hidden" type="button">Delete problem</button>
+      </div>
+      <div id="deleteProblemRow" class="delete-problem-row hidden">
+        <button id="deleteProblemSheetBtn" class="btn danger" type="button">Delete problem</button>
       </div>
     </div>
   </section>
