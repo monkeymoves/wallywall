@@ -9,3 +9,5 @@ dist/
 
 # macOS
 .DS_Store
+
+.firebase/hosting.cHVibGlj.cache
