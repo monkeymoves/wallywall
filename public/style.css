@@ -826,6 +826,23 @@ body.create-mode .board-frame {
   padding-bottom: max(0.72rem, env(safe-area-inset-bottom, 0px) + 0.2rem);
 }
 
+.problem-info.is-clickable {
+  cursor: pointer;
+}
+
+.problem-info.is-clickable:hover {
+  border-color: rgba(179, 204, 255, 0.28);
+}
+
+.problem-info.is-clickable:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 4px rgba(122, 167, 255, 0.14),
+    0 18px 36px rgba(10, 14, 19, 0.24);
+}
+
 .quick-log-body {
   gap: 0.9rem;
 }

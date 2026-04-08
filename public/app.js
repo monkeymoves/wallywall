@@ -367,12 +367,14 @@ function renderProblemDetails() {
 
   if (state.isPlacementMode) {
     DOM.problemInfoCard.classList.add('hidden');
+    DOM.problemInfoCard.classList.remove('is-clickable');
     updateProblemNavButtons();
     return;
   }
 
   if (!selectedProblem) {
     DOM.problemInfoCard.classList.add('hidden');
+    DOM.problemInfoCard.classList.remove('is-clickable');
     DOM.problemPositionText.textContent = '';
     editor.clear();
     updateProblemNavButtons();
@@ -382,12 +384,43 @@ function renderProblemDetails() {
   const { index, total } = getProblemPosition(state.filteredProblems, selectedProblem.id);
 
   DOM.problemInfoCard.classList.remove('hidden');
+  DOM.problemInfoCard.classList.add('is-clickable');
   DOM.problemGradeDisplay.textContent = selectedProblem.grade || 'Ungraded';
   DOM.problemInfoName.textContent = selectedProblem.name || 'Untitled problem';
   DOM.problemDescriptionText.textContent = selectedProblem.description || 'No notes yet.';
   DOM.problemPositionText.textContent = total ? `${index + 1} / ${total}` : '';
   editor.setHolds(selectedProblem.holds || []);
   updateProblemNavButtons();
+}
+
+function configureProblemSheetForCurrentMode() {
+  const selectedProblem = getSelectedProblem();
+  const isReadOnly = !state.isPlacementMode;
+
+  DOM.problemName.readOnly = isReadOnly;
+  DOM.problemDesc.readOnly = isReadOnly;
+  DOM.problemGrade.disabled = isReadOnly;
+
+  if (isReadOnly) {
+    DOM.problemSheetEyebrow.textContent = 'Problem';
+    DOM.problemSheetTitle.textContent = selectedProblem?.name || 'Problem details';
+    DOM.problemSheetIntro.textContent = 'View the full route description, grade, and notes for this problem.';
+    DOM.cancelSheetBtn.textContent = 'Close details';
+    DOM.saveProblemDetailsBtn.classList.add('hidden');
+    DOM.deleteProblemRow.classList.add('hidden');
+    return;
+  }
+
+  const isCreateMode = state.problemSheetMode === 'create';
+  DOM.problemSheetEyebrow.textContent = isCreateMode ? 'New problem' : 'Problem';
+  DOM.problemSheetTitle.textContent = isCreateMode ? 'Name, grade & notes' : 'Edit details';
+  DOM.problemSheetIntro.textContent = 'Keep hold placement on the board and open this card only for the route name, grade, and notes.';
+  DOM.cancelSheetBtn.textContent = 'Keep placing';
+  DOM.saveProblemDetailsBtn.classList.remove('hidden');
+  DOM.deleteProblemRow.classList.toggle(
+    'hidden',
+    state.problemSheetMode !== 'edit' || !selectedProblem || !canDeleteCurrentProblem()
+  );
 }
 
 function selectProblem(problemId, { closeBrowser = false } = {}) {
@@ -948,8 +981,6 @@ function renderShell() {
   DOM.editModeBanner.textContent = isCreateMode ? 'Creating' : 'Editing';
   DOM.placementModePill.textContent = isCreateMode ? 'New draft' : 'Hold layout';
   DOM.openProblemDetailsBtn.textContent = 'Details';
-  DOM.problemSheetEyebrow.textContent = isCreateMode ? 'New problem' : 'Problem';
-  DOM.problemSheetTitle.textContent = isCreateMode ? 'Name, grade & notes' : 'Edit details';
 
   DOM.newProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || state.isPlacementMode);
   DOM.editProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
@@ -960,13 +991,10 @@ function renderShell() {
     'hidden',
     !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentProblem()
   );
-  DOM.deleteProblemRow.classList.toggle(
-    'hidden',
-    !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentProblem()
-  );
 
   updateBoardZoomUi();
   renderQuickLogSheet();
+  configureProblemSheetForCurrentMode();
 
   renderAccessSheet();
   renderAccountState();
@@ -1469,7 +1497,14 @@ function beginPlacement(mode) {
 }
 
 function openProblemDetails() {
-  if (!state.isPlacementMode) return;
+  const selectedProblem = getSelectedProblem();
+  if (!state.isPlacementMode && !selectedProblem) return;
+
+  if (!state.isPlacementMode && selectedProblem) {
+    populateProblemForm(selectedProblem);
+  }
+
+  configureProblemSheetForCurrentMode();
   openSheet(DOM.problemSheet);
 }
 
@@ -1875,6 +1910,17 @@ function bindEvents() {
   DOM.newProblemBtn.addEventListener('click', () => beginPlacement('create'));
   DOM.editProblemBtn.addEventListener('click', () => beginPlacement('edit'));
   DOM.openProblemDetailsBtn.addEventListener('click', openProblemDetails);
+  DOM.problemInfoCard.addEventListener('click', (event) => {
+    if (state.isPlacementMode || !getSelectedProblem()) return;
+    if (event.target.closest('#prevProblemBtn, #nextProblemBtn')) return;
+    openProblemDetails();
+  });
+  DOM.problemInfoCard.addEventListener('keydown', (event) => {
+    if (state.isPlacementMode || !getSelectedProblem()) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openProblemDetails();
+  });
   DOM.deleteProblemSheetBtn.addEventListener('click', handleDeleteProblem);
   DOM.cancelDrawBtn.addEventListener('click', cancelPlacement);
   DOM.saveProblemBtn.addEventListener('click', handleSaveProblem);

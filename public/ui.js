@@ -120,6 +120,7 @@ export const DOM = {
   problemSheet: by('problemSheet'),
   problemSheetEyebrow: by('problemSheetEyebrow'),
   problemSheetTitle: by('problemSheetTitle'),
+  problemSheetIntro: by('problemSheetIntro'),
   closeProblemSheetBtn: by('closeProblemSheetBtn'),
   problemName: by('problemName'),
   problemDesc: by('problemDesc'),

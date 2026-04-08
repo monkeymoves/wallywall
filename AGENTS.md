@@ -24,6 +24,7 @@
 ## Key UX Constraints
 - Keep the board pinned high under the top bar for maximum usable image area.
 - Read mode should feel calm and minimal.
+- The bottom selected-problem rail should stay tappable in read mode so long descriptions are accessible in the details sheet.
 - Edit/create mode should keep controls pinned independently of board zoom.
 - Zoom and pan must allow reaching the full image bounds.
 - Menus should stay visually separated and readable on narrow mobile widths.
