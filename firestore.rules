@@ -71,7 +71,11 @@ service cloud.firestore {
         // The board owner can grant/revoke permissions.
         // A user can also write to their own permission record if they are promoting from a guest.
         allow write: if isOwner() || (request.auth.uid == userId && hasValidGuestCode(boardId, request.resource.data.guestCode));
-        allow read: if isOwner() || request.auth.uid == userId;
+        allow read: if isOwner()
+          || request.auth.uid == userId
+          || (request.auth != null
+            && resource.data.email != null
+            && request.auth.token.email == resource.data.email);
         allow delete: if isOwner();
       }
 

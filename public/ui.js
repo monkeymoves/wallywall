@@ -3,7 +3,7 @@ const by = (id) => document.getElementById(id);
 export const DOM = {
   openBoardsBtn: by('openBoardsBtn'),
   openProblemsBtn: by('openProblemsBtn'),
-  openAccountBtn: by('openAccountBtn'),
+  editModeBanner: by('editModeBanner'),
   currentBoardName: by('currentBoardName'),
   currentProblemSummary: by('currentProblemSummary'),
   permissionPill: by('permissionPill'),
@@ -16,6 +16,8 @@ export const DOM = {
   currentBoard: by('currentBoard'),
   canvas: by('overlayCanvas'),
   placementHud: by('placementHud'),
+  editTopbar: by('editTopbar'),
+  placementMetaStrip: by('placementMetaStrip'),
   placementModePill: by('placementModePill'),
   openProblemDetailsBtn: by('openProblemDetailsBtn'),
   placementHint: by('placementHint'),
@@ -41,7 +43,7 @@ export const DOM = {
   boardAccessCaption: by('boardAccessCaption'),
   createBoardShortcutBtn: by('createBoardShortcutBtn'),
   joinBoardShortcutBtn: by('joinBoardShortcutBtn'),
-  futureSessionsBtn: by('futureSessionsBtn'),
+  accountMenuSection: by('accountMenuSection'),
   ownedBoardsSection: by('ownedBoardsSection'),
   ownedBoardsList: by('ownedBoardsList'),
   sharedBoardsSection: by('sharedBoardsSection'),
@@ -57,8 +59,6 @@ export const DOM = {
   copyGeneratedCodeBtn: by('copyGeneratedCodeBtn'),
   sharedUsersList: by('sharedUsersList'),
   sharedUsersEmpty: by('sharedUsersEmpty'),
-  accountSheet: by('accountSheet'),
-  closeAccountSheetBtn: by('closeAccountSheetBtn'),
   accountStatus: by('accountStatus'),
   signedOutAccountView: by('signedOutAccountView'),
   signedInAccountView: by('signedInAccountView'),
@@ -108,7 +108,6 @@ export const DOM = {
 
 const sheets = [
   DOM.boardsSheet,
-  DOM.accountSheet,
   DOM.createBoardSheet,
   DOM.joinCodeSheet,
   DOM.problemsSheet,

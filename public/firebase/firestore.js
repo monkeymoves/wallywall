@@ -125,12 +125,24 @@ export function listenForOwnedBoards(userId, callback, errorCallback) {
   return onSnapshot(ownedBoardsQuery, callback, errorCallback);
 }
 
-export function listenForSharedBoards(userId, callback, errorCallback) {
+export function listenForSharedBoards(userId, userEmail, callback, errorCallback) {
   const sharedBoardsQuery = query(
     collection(db, `users/${userId}/sharedBoards`),
     orderBy('sharedAt', 'desc')
   );
-  return onSnapshot(sharedBoardsQuery, callback, errorCallback);
+
+  return onSnapshot(
+    sharedBoardsQuery,
+    (snapshot) => {
+      const sharedBoardDocs = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        source: 'sharedBoard',
+        ...docSnap.data(),
+      }));
+      callback(sharedBoardDocs);
+    },
+    errorCallback
+  );
 }
 
 export async function getUserPermissionForBoard(boardId, userId) {

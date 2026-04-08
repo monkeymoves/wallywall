@@ -12,19 +12,28 @@
 </head>
 <body class="dark-theme">
   <header class="topbar">
-    <button id="openBoardsBtn" class="btn topbar-btn" aria-label="Open boards">Boards</button>
+    <button id="openBoardsBtn" class="btn topbar-btn menu-btn" aria-label="Open menu">☰</button>
     <div class="topbar-copy">
       <p class="eyebrow">WallyWall</p>
       <h1 id="currentBoardName">Choose a board</h1>
       <p id="currentProblemSummary" class="topbar-subcopy hidden"></p>
     </div>
     <div class="topbar-actions">
-      <span id="permissionPill" class="pill hidden"></span>
       <button id="openProblemsBtn" class="btn topbar-btn hidden">Problems</button>
       <button id="newProblemBtn" class="icon-btn hidden" aria-label="New problem">＋</button>
       <button id="editProblemBtn" class="icon-btn hidden" aria-label="Edit problem">✎</button>
       <button id="deleteProblemBtn" class="icon-btn hidden" aria-label="Delete problem">🗑</button>
-      <button id="openAccountBtn" class="icon-btn" aria-label="Open account">◐</button>
+    </div>
+    <div id="editTopbar" class="edit-topbar hidden">
+      <span id="editModeBanner" class="edit-mode-banner">Edit mode</span>
+      <button id="cancelDrawBtn" class="btn edit-topbar-btn" type="button">Discard</button>
+      <div id="editControls" class="edit-toolrail">
+        <button data-type="start" class="hold-btn active">Start</button>
+        <button data-type="hold" class="hold-btn">Hold</button>
+        <button data-type="finish" class="hold-btn">Finish</button>
+        <button data-type="delete" class="hold-btn danger-text">Erase</button>
+      </div>
+      <button id="saveProblemBtn" class="btn primary edit-topbar-btn" type="button">Save</button>
     </div>
   </header>
 
@@ -47,26 +56,11 @@
           <img id="currentBoard" alt="Climbing board" />
           <canvas id="overlayCanvas"></canvas>
         </div>
+      </div>
 
-        <div id="placementHud" class="placement-hud hidden">
-          <div class="placement-hud-row">
-            <span id="placementModePill" class="pill accent">Edit mode</span>
-          </div>
-          <p id="placementHint" class="placement-hint hidden"></p>
-          <div id="editControls" class="placement-controls">
-            <div id="drawControls" class="draw-toolbar">
-              <button data-type="start" class="hold-btn active">Start</button>
-              <button data-type="hold" class="hold-btn">Hold</button>
-              <button data-type="finish" class="hold-btn">Finish</button>
-              <button data-type="delete" class="hold-btn danger-text">Delete</button>
-            </div>
-            <div class="placement-actions">
-              <button id="openProblemDetailsBtn" class="btn" type="button">Details</button>
-              <button id="cancelDrawBtn" class="btn" type="button">Discard</button>
-              <button id="saveProblemBtn" class="btn primary" type="button">Save</button>
-            </div>
-          </div>
-        </div>
+      <div id="placementMetaStrip" class="placement-meta-strip hidden">
+        <span id="placementModePill" class="pill accent">Edit mode</span>
+        <button id="openProblemDetailsBtn" class="btn topbar-btn" type="button">Edit details</button>
       </div>
 
       <section id="problemEmptyState" class="card problem-empty hidden">
@@ -90,26 +84,54 @@
     <div class="sheet-header">
       <div>
         <p class="eyebrow">Boards</p>
-        <h2 id="boardsSheetTitle">Boards and shortcuts</h2>
+        <h2 id="boardsSheetTitle">Menu</h2>
       </div>
       <button id="closeBoardsSheetBtn" class="icon-btn" aria-label="Close boards sheet">✕</button>
     </div>
     <div class="sheet-body">
-      <p id="boardsListMessage" class="sheet-copy">Open a board, join one with a code, or create your own board.</p>
-      <div class="shortcut-grid">
-        <button id="createBoardShortcutBtn" class="shortcut-card">
+      <p id="boardsListMessage" class="sheet-copy">Switch boards, join with a code, or create a new wall.</p>
+      <div class="menu-list">
+        <button id="createBoardShortcutBtn" class="menu-row" type="button">
           <strong>Create board</strong>
           <span>Upload a board photo and start setting problems.</span>
         </button>
-        <button id="joinBoardShortcutBtn" class="shortcut-card">
+        <button id="joinBoardShortcutBtn" class="menu-row" type="button">
           <strong>Join with code</strong>
           <span>Use a board code for guest or member access.</span>
         </button>
-        <button id="futureSessionsBtn" class="shortcut-card muted" type="button" disabled>
-          <strong>Sessions</strong>
-          <span>Reserved for future logging and history.</span>
-        </button>
       </div>
+
+      <details id="accountMenuSection" class="sheet-section menu-disclosure">
+        <summary class="menu-disclosure-summary">
+          <span>Account</span>
+          <span class="section-caption">Sign in, sign out, and manage your saved access.</span>
+        </summary>
+        <p id="accountStatus" class="sheet-copy">Sign in to own boards and keep shared access between visits.</p>
+
+        <div id="signedOutAccountView" class="sheet-section">
+          <label class="field">
+            <span>Email</span>
+            <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input id="passwordInput" type="password" placeholder="At least 6 characters" autocomplete="current-password" />
+          </label>
+          <div class="button-row wrap">
+            <button id="signInBtn" class="btn" type="button">Sign in</button>
+            <button id="createAccountBtn" class="btn primary" type="button">Create account</button>
+          </div>
+          <p id="accountHint" class="section-caption">Guests can still join a board with a code without creating an account.</p>
+        </div>
+
+        <div id="signedInAccountView" class="sheet-section hidden">
+          <div class="account-summary subtle-card">
+            <p class="section-caption">Signed in as</p>
+            <strong id="signedInEmail"></strong>
+          </div>
+          <button id="signOutBtn" class="btn" type="button">Sign out</button>
+        </div>
+      </details>
 
       <section id="ownedBoardsSection" class="sheet-section hidden">
         <div class="section-heading-row">
@@ -127,11 +149,11 @@
         <ul id="sharedBoardsList" class="board-list"></ul>
       </section>
 
-      <section id="boardAccessSection" class="sheet-section hidden">
-        <div class="section-heading-row">
-          <h3>Board access</h3>
+      <details id="boardAccessSection" class="sheet-section menu-disclosure hidden">
+        <summary class="menu-disclosure-summary">
+          <span>Board access & sharing</span>
           <span id="boardAccessCaption" class="section-caption">Choose a board to see permissions and sharing options.</span>
-        </div>
+        </summary>
 
         <section id="ownerAccessSection" class="sheet-section hidden">
           <h3>Guest codes</h3>
@@ -159,44 +181,7 @@
           <h3>Your access</h3>
           <p id="memberAccessText" class="sheet-copy"></p>
         </section>
-      </section>
-    </div>
-  </section>
-
-  <section id="accountSheet" class="sheet hidden" aria-labelledby="accountSheetTitle" aria-modal="true" role="dialog">
-    <div class="sheet-header">
-      <div>
-        <p class="eyebrow">Account</p>
-        <h2 id="accountSheetTitle">Account</h2>
-      </div>
-      <button id="closeAccountSheetBtn" class="icon-btn" aria-label="Close account sheet">✕</button>
-    </div>
-    <div class="sheet-body">
-      <p id="accountStatus" class="sheet-copy">Sign in to own boards and keep shared access between visits.</p>
-
-      <div id="signedOutAccountView" class="sheet-section">
-        <label class="field">
-          <span>Email</span>
-          <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email" />
-        </label>
-        <label class="field">
-          <span>Password</span>
-          <input id="passwordInput" type="password" placeholder="At least 6 characters" autocomplete="current-password" />
-        </label>
-        <div class="button-row wrap">
-          <button id="signInBtn" class="btn">Sign in</button>
-          <button id="createAccountBtn" class="btn primary">Create account</button>
-        </div>
-        <p id="accountHint" class="section-caption">Guests can still join a board with a code without creating an account.</p>
-      </div>
-
-      <div id="signedInAccountView" class="sheet-section hidden">
-        <div class="account-summary card subtle-card">
-          <p class="section-caption">Signed in as</p>
-          <strong id="signedInEmail"></strong>
-        </div>
-        <button id="signOutBtn" class="btn">Sign out</button>
-      </div>
+      </details>
     </div>
   </section>
 

@@ -47,9 +47,7 @@ body {
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background:
-    radial-gradient(circle at top, rgba(59, 130, 246, 0.1), transparent 34%),
-    linear-gradient(180deg, #171c24 0%, var(--bg-main) 26%, #0b0f14 100%);
+  background: linear-gradient(180deg, #0d1117 0%, #0a0e14 100%);
   color: var(--text-primary);
   overflow: hidden;
 }
@@ -110,11 +108,11 @@ img {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: calc(env(safe-area-inset-top, 0px) + 0.65rem) 0.85rem 0.65rem;
-  background: linear-gradient(180deg, rgba(11, 15, 20, 0.94), rgba(11, 15, 20, 0.76));
-  backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 0.55rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.6rem) 0.8rem 0.6rem;
+  background: rgba(10, 14, 20, 0.86);
+  backdrop-filter: blur(22px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .topbar-copy {
@@ -130,12 +128,12 @@ img {
 }
 
 .topbar-copy h1 {
-  font-size: 1.12rem;
-  font-weight: 700;
+  font-size: 1.16rem;
+  font-weight: 650;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .topbar-subcopy {
@@ -150,7 +148,57 @@ img {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
+}
+
+.menu-btn {
+  min-width: 38px;
+  padding: 0.5rem 0.62rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.account-btn {
+  white-space: nowrap;
+}
+
+.edit-topbar {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.edit-mode-banner {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0.45rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  background: rgba(59, 130, 246, 0.16);
+  color: #dbeafe;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.edit-toolrail {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.28rem;
+}
+
+.edit-topbar-btn {
+  min-height: 36px;
+  padding: 0.48rem 0.72rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 body.editing-mode .topbar {
@@ -158,11 +206,26 @@ body.editing-mode .topbar {
   box-shadow: inset 0 -1px 0 rgba(59, 130, 246, 0.2);
 }
 
+body.create-mode .topbar {
+  border-bottom-color: rgba(250, 204, 21, 0.34);
+  box-shadow: inset 0 -1px 0 rgba(250, 204, 21, 0.22);
+}
+
+body.create-mode .edit-mode-banner {
+  border-color: rgba(234, 179, 8, 0.36);
+  background: rgba(250, 204, 21, 0.16);
+  color: #fef3c7;
+}
+
+body.editing-mode .topbar > :not(#editTopbar) {
+  display: none;
+}
+
 .app-main {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 0.2rem) 0.2rem 0.2rem;
+  padding: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 0.15rem) 0.15rem 0.15rem;
   overflow: auto;
 }
 
@@ -211,7 +274,7 @@ body.editing-mode .topbar {
 }
 
 .btn,
-.shortcut-card,
+.menu-row,
 .icon-btn,
 .file-picker,
 .board-list button,
@@ -236,7 +299,7 @@ body.editing-mode .topbar {
 
 .btn:hover,
 .file-picker:hover,
-.shortcut-card:hover,
+.menu-row:hover,
 .board-list button:hover,
 .icon-btn:hover,
 .shared-users-list button:hover {
@@ -264,7 +327,7 @@ body.editing-mode .topbar {
 }
 
 .btn:disabled,
-.shortcut-card:disabled {
+.menu-row:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -346,8 +409,8 @@ select {
   position: relative;
   flex: 1;
   min-height: calc(100dvh - 110px);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01));
-  border: 1px solid var(--border-color);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
@@ -355,12 +418,17 @@ select {
   justify-content: center;
   padding: 0.12rem;
   align-self: stretch;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+  box-shadow: none;
 }
 
 body.editing-mode .board-frame {
   border-color: rgba(59, 130, 246, 0.45);
   box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.18), 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+body.create-mode .board-frame {
+  border-color: rgba(234, 179, 8, 0.46);
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.18), 0 18px 44px rgba(0, 0, 0, 0.22);
 }
 
 .board-media {
@@ -387,24 +455,70 @@ body.editing-mode .board-frame {
 
 .problem-empty,
 .problem-info {
-  padding: 1rem;
+  padding: 0.9rem 0.95rem;
+}
+
+.placement-meta-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin: 0 0.2rem;
+  padding: 0.42rem 0.5rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 20, 27, 0.82);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
+}
+
+.placement-meta-strip .pill {
+  min-height: 28px;
+  padding: 0.22rem 0.58rem;
+  font-size: 0.72rem;
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #dbeafe;
+}
+
+.placement-meta-strip .btn {
+  min-height: 34px;
+  padding: 0.46rem 0.68rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+body.create-mode .placement-meta-strip {
+  border-color: rgba(234, 179, 8, 0.2);
+  background: rgba(32, 27, 9, 0.76);
+}
+
+body.create-mode .placement-meta-strip .pill {
+  background: rgba(250, 204, 21, 0.14);
+  border-color: rgba(234, 179, 8, 0.34);
+  color: #fef3c7;
+}
+
+body.editing-mode #openProblemDetailsBtn {
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+body.create-mode #openProblemDetailsBtn {
+  border-color: rgba(234, 179, 8, 0.28);
 }
 
 .problem-info {
-  position: absolute;
-  left: 0.55rem;
-  right: auto;
-  bottom: 0.55rem;
-  z-index: 4;
+  position: static;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  max-width: min(340px, calc(100% - 1.1rem));
-  padding: 0.75rem 0.85rem;
-  background: rgba(13, 18, 25, 0.82);
-  border-color: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
+  gap: 0.2rem;
+  max-width: none;
+  margin: 0 0.18rem;
+  padding: 0.72rem 0.78rem;
+  background: rgba(16, 21, 29, 0.74);
+  border-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
+  box-shadow: none;
 }
 
 .placement-hud {
@@ -413,8 +527,8 @@ body.editing-mode .board-frame {
   z-index: 5;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 0.65rem;
+  justify-content: flex-end;
+  gap: 0.45rem;
   padding: 0.65rem;
   pointer-events: none;
 }
@@ -424,10 +538,6 @@ body.editing-mode .board-frame {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.placement-hud-row {
-  justify-content: flex-start;
 }
 
 .placement-hint {
@@ -444,12 +554,31 @@ body.editing-mode .board-frame {
 .placement-controls {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.38rem;
   align-items: stretch;
-  padding: 0.6rem;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(8, 12, 18, 0.26), rgba(8, 12, 18, 0.78));
+  padding: 0.35rem;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(8, 12, 18, 0.16), rgba(8, 12, 18, 0.86));
   backdrop-filter: blur(16px);
+}
+
+.placement-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.placement-mode-bar .pill {
+  min-height: 26px;
+  padding: 0.22rem 0.58rem;
+  font-size: 0.72rem;
+}
+
+.placement-mode-bar .btn {
+  min-height: 32px;
+  padding: 0.46rem 0.62rem;
+  font-size: 0.8rem;
 }
 
 .placement-hud .btn,
@@ -496,9 +625,10 @@ body.editing-mode .board-frame {
 }
 
 .topbar-btn {
-  min-height: 36px;
-  padding: 0.58rem 0.82rem;
-  background: rgba(255, 255, 255, 0.035);
+  min-height: 35px;
+  padding: 0.54rem 0.76rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 .problem-browser-list {
@@ -547,17 +677,18 @@ body.editing-mode .board-frame {
 .draw-toolbar {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0.34rem;
 }
 
 .hold-btn {
-  min-height: 46px;
-  padding: 0.75rem 0.5rem;
-  border-radius: 14px;
+  min-height: 38px;
+  padding: 0.5rem 0.3rem;
+  border-radius: 11px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.82rem;
   letter-spacing: -0.01em;
 }
 
@@ -617,11 +748,8 @@ body.editing-mode .board-frame {
 
 .placement-actions {
   justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-.placement-actions #openProblemDetailsBtn {
-  margin-right: auto;
+  flex-wrap: nowrap;
+  gap: 0.42rem;
 }
 
 .sheet-backdrop,
@@ -644,7 +772,7 @@ body.editing-mode .board-frame {
   position: fixed;
   inset: auto 0 0 0;
   z-index: 90;
-  background: linear-gradient(180deg, rgba(31, 37, 48, 0.96) 0%, rgba(18, 23, 31, 0.98) 100%);
+  background: linear-gradient(180deg, rgba(24, 29, 38, 0.98) 0%, rgba(15, 19, 26, 0.99) 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   border-top-left-radius: 26px;
   border-top-right-radius: 26px;
@@ -659,7 +787,7 @@ body.editing-mode .board-frame {
 }
 
 .sheet-header {
-  padding: 1rem 1rem 0.75rem;
+  padding: 0.95rem 1rem 0.7rem;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -668,7 +796,7 @@ body.editing-mode .board-frame {
 }
 
 .sheet-body {
-  padding: 0.9rem 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  padding: 0.8rem 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -698,29 +826,26 @@ body.editing-mode .board-frame {
   gap: 0.75rem;
 }
 
-.shortcut-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.shortcut-card {
-  padding: 1rem;
+.menu-list {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.55rem;
+}
+
+.menu-row {
+  width: 100%;
+  padding: 0.88rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.24rem;
   text-align: left;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
 }
 
-.shortcut-card span {
+.menu-row span {
   color: var(--text-secondary);
   line-height: 1.4;
-}
-
-.shortcut-card.muted {
-  opacity: 0.58;
 }
 
 .board-list,
@@ -738,8 +863,8 @@ body.editing-mode .board-frame {
 
 .board-list button {
   width: 100%;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 0.95rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.82rem 0.9rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -779,6 +904,45 @@ body.editing-mode .board-frame {
   margin-bottom: 0.25rem;
 }
 
+#boardsSheet .sheet-body {
+  gap: 0.85rem;
+}
+
+#boardsSheet .sheet-copy {
+  max-width: 32rem;
+}
+
+#boardsSheet .sheet-section {
+  gap: 0.65rem;
+}
+
+.menu-disclosure {
+  padding: 0.82rem 0.88rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.menu-disclosure-summary {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  cursor: pointer;
+}
+
+.menu-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu-disclosure[open] {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.menu-disclosure > .sheet-section:first-of-type {
+  padding-top: 0.9rem;
+}
+
 .generated-code strong {
   font-size: 1.35rem;
   letter-spacing: 0.08em;
@@ -809,7 +973,9 @@ body.editing-mode .board-frame {
 }
 
 .account-summary {
-  padding: 1rem;
+  padding: 0.9rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .file-field input[type="file"] {
@@ -956,21 +1122,37 @@ body.editing-mode .board-frame {
 
   .topbar {
     height: var(--topbar-h);
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-    gap: 0.55rem;
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+    gap: 0.45rem;
+  }
+
+  .edit-topbar {
+    gap: 0.26rem;
+  }
+
+  .edit-mode-banner {
+    min-height: 34px;
+    padding: 0.4rem 0.54rem;
+    font-size: 0.72rem;
+  }
+
+  .edit-toolrail {
+    gap: 0.22rem;
+  }
+
+  .edit-topbar-btn {
+    min-height: 34px;
+    padding: 0.42rem 0.52rem;
+    font-size: 0.76rem;
   }
 
   .topbar-actions {
     gap: 0.35rem;
   }
 
-  .topbar-actions .pill {
-    display: none;
-  }
-
   .topbar-copy h1 {
-    font-size: 0.98rem;
+    font-size: 0.96rem;
   }
 
   .icon-btn {
@@ -1026,10 +1208,6 @@ body.editing-mode .board-frame {
     gap: 0.5rem;
   }
 
-  .shortcut-grid {
-    grid-template-columns: 1fr;
-  }
-
   .generated-code {
     flex-direction: column;
     align-items: flex-start;
@@ -1042,40 +1220,91 @@ body.editing-mode .board-frame {
   }
 
   .topbar-btn {
-    min-height: 36px;
-    padding: 0.52rem 0.65rem;
-    font-size: 0.82rem;
+    min-height: 34px;
+    padding: 0.48rem 0.62rem;
+    font-size: 0.8rem;
+  }
+
+  .menu-btn {
+    min-width: 38px;
+    padding: 0.5rem 0.62rem;
+    font-size: 0.95rem;
+  }
+
+  .account-btn {
+    padding-inline: 0.7rem;
   }
 
   .problem-info {
-    position: static;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    max-width: calc(100% - 0.7rem);
-    margin: 0 0.35rem 0.35rem;
+    max-width: calc(100% - 0.36rem);
+    margin: 0 0.18rem 0.16rem;
+    padding: 0.58rem 0.64rem;
+  }
+
+  .placement-meta-strip {
+    margin: 0 0.18rem;
+    padding: 0.34rem 0.4rem;
+    gap: 0.45rem;
+    border-radius: 12px;
+  }
+
+  .placement-meta-strip .pill {
+    min-height: 24px;
+    padding: 0.18rem 0.48rem;
+    font-size: 0.68rem;
+  }
+
+  .placement-meta-strip .btn {
+    min-height: 32px;
+    padding: 0.4rem 0.58rem;
+    font-size: 0.76rem;
   }
 
   .placement-hud {
-    padding: 0.45rem;
-  }
-
-  .placement-hud-row {
-    align-items: flex-start;
+    padding: 0.35rem;
   }
 
   .placement-controls {
     width: 100%;
     align-items: stretch;
+    padding: 0.28rem;
+    border-radius: 13px;
+    gap: 0.28rem;
+  }
+
+  .placement-mode-bar .pill {
+    min-height: 24px;
+    padding: 0.18rem 0.48rem;
+    font-size: 0.68rem;
+  }
+
+  .placement-mode-bar .btn {
+    min-height: 30px;
+    padding: 0.42rem 0.58rem;
+    font-size: 0.76rem;
   }
 
   .draw-toolbar {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
+    gap: 0.28rem;
   }
 
   .placement-actions {
     justify-content: flex-end;
+    gap: 0.28rem;
+  }
+
+  .hold-btn {
+    min-height: 34px;
+    padding: 0.42rem 0.24rem;
+    font-size: 0.76rem;
+  }
+
+  .placement-actions .btn {
+    min-height: 34px;
+    padding: 0.44rem 0.62rem;
+    font-size: 0.76rem;
   }
 
   #problemSheet {

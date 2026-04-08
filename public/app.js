@@ -35,13 +35,10 @@ import {
   openSheet,
   setButtonBusy,
   setInlineStatus,
-  setPill,
   showBoardStatus,
   showConfirm,
   showToast,
 } from './ui.js';
-
-const GRADE_FILTERS = ['all', 'V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13', 'V14', 'V14+'];
 
 const editor = new ProblemEditor({
   canvas: DOM.canvas,
@@ -226,15 +223,48 @@ function populateProblemForm(problem) {
   DOM.problemGrade.value = problem?.grade || '';
 }
 
+function getProblemGradeOptions() {
+  const uniqueGrades = [...new Set(
+    state.currentProblems
+      .map((problem) => problem.grade)
+      .filter(Boolean)
+  )];
+
+  return uniqueGrades.sort((left, right) => gradeValue(left) - gradeValue(right));
+}
+
+function syncProblemGradeFilterOptions() {
+  const gradeOptions = getProblemGradeOptions();
+  const hasSelectedGrade = state.selectedGradeFilter !== 'all' && gradeOptions.includes(state.selectedGradeFilter);
+
+  if (!hasSelectedGrade) {
+    state.selectedGradeFilter = 'all';
+  }
+
+  DOM.problemGradeFilter.innerHTML = '';
+
+  const allOption = document.createElement('option');
+  allOption.value = 'all';
+  allOption.textContent = 'All grades';
+  DOM.problemGradeFilter.append(allOption);
+
+  gradeOptions.forEach((grade) => {
+    const option = document.createElement('option');
+    option.value = grade;
+    option.textContent = grade;
+    DOM.problemGradeFilter.append(option);
+  });
+
+  DOM.problemGradeFilter.value = state.selectedGradeFilter;
+}
+
 function renderProblemDetails() {
   const selectedProblem = getSelectedProblem();
 
   if (state.isPlacementMode) {
     DOM.problemInfoCard.classList.add('hidden');
-    DOM.currentProblemSummary.classList.remove('hidden');
-    DOM.currentProblemSummary.textContent = state.problemSheetMode === 'edit'
-      ? 'Editing problem'
-      : 'Creating problem';
+    DOM.currentProblemSummary.classList.add('hidden');
+    DOM.currentProblemSummary.textContent = '';
     return;
   }
 
@@ -247,10 +277,8 @@ function renderProblemDetails() {
   }
 
   DOM.problemInfoCard.classList.remove('hidden');
-  DOM.currentProblemSummary.classList.remove('hidden');
-  DOM.currentProblemSummary.textContent = selectedProblem.grade
-    ? `${selectedProblem.grade} · ${selectedProblem.name}`
-    : selectedProblem.name || 'Selected problem';
+  DOM.currentProblemSummary.classList.add('hidden');
+  DOM.currentProblemSummary.textContent = '';
   DOM.problemGradeDisplay.textContent = selectedProblem.grade || 'Ungraded';
   DOM.problemInfoName.textContent = selectedProblem.name || 'Untitled problem';
   DOM.problemDescriptionText.textContent = selectedProblem.description || 'No description yet.';
@@ -259,6 +287,7 @@ function renderProblemDetails() {
 
 function renderProblemBrowser() {
   const selectedProblem = getSelectedProblem();
+  syncProblemGradeFilterOptions();
 
   const filteredProblems = [...state.currentProblems]
     .filter((problem) => state.selectedGradeFilter === 'all' || problem.grade === state.selectedGradeFilter)
@@ -269,9 +298,6 @@ function renderProblemBrowser() {
     });
 
   state.filteredProblems = filteredProblems;
-  DOM.problemGradeFilter.value = GRADE_FILTERS.includes(state.selectedGradeFilter)
-    ? state.selectedGradeFilter
-    : 'all';
 
   DOM.problemSearchSummary.textContent = state.selectedGradeFilter === 'all'
     ? `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} available.`
@@ -460,28 +486,25 @@ function renderAccessSheet() {
 
 function renderShell() {
   const hasBoard = Boolean(state.currentBoard);
-  const presentation = getAccessPresentation();
   document.body.classList.toggle('editing-mode', state.isPlacementMode);
 
   DOM.currentBoardName.textContent = hasBoard ? state.currentBoard.name || 'Untitled board' : 'Choose a board';
   DOM.welcomeMessage.classList.toggle('hidden', hasBoard);
   DOM.boardScene.classList.toggle('hidden', !hasBoard);
-  DOM.permissionPill.classList.toggle('hidden', !hasBoard);
   DOM.openProblemsBtn.classList.toggle('hidden', !hasBoard || state.isPlacementMode);
-  DOM.currentProblemSummary.classList.toggle('hidden', !hasBoard || !DOM.currentProblemSummary.textContent);
+  DOM.currentProblemSummary.classList.add('hidden');
 
-  if (hasBoard) {
-    setPill(DOM.permissionPill, presentation.label, presentation.className);
-  }
-
-  DOM.placementHud.classList.toggle('hidden', !state.isPlacementMode);
+  DOM.editTopbar.classList.toggle('hidden', !state.isPlacementMode);
+  DOM.placementMetaStrip.classList.toggle('hidden', !state.isPlacementMode);
   DOM.editControls.classList.toggle('hidden', !state.isPlacementMode);
   const isCreateMode = state.problemSheetMode === 'create';
-  DOM.placementModePill.textContent = isCreateMode ? 'Creating problem' : 'Editing holds';
-  DOM.openProblemDetailsBtn.textContent = isCreateMode ? 'Name & grade' : 'Details';
+  document.body.classList.toggle('create-mode', state.isPlacementMode && isCreateMode);
+  document.body.classList.toggle('update-mode', state.isPlacementMode && !isCreateMode);
+  DOM.editModeBanner.textContent = isCreateMode ? 'Creating problem' : 'Editing problem';
+  DOM.placementModePill.textContent = isCreateMode ? 'Step 2' : 'Details';
+  DOM.openProblemDetailsBtn.textContent = isCreateMode ? 'Add name, grade & notes' : 'Edit name, grade & notes';
   DOM.openProblemDetailsBtn.classList.toggle('primary', false);
-  DOM.placementHint.classList.toggle('hidden', !state.isPlacementMode || !state.showPlacementHint);
-  DOM.placementHint.textContent = state.showPlacementHint ? state.placementHintMessage : '';
+  hidePlacementHint();
 
   const hasSelectedProblem = Boolean(state.selectedProblemId);
   DOM.newProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || state.isPlacementMode);
@@ -498,6 +521,13 @@ function renderShell() {
 
   renderAccessSheet();
   renderAccountState();
+}
+
+function openAccountMenuSection() {
+  openSheet(DOM.boardsSheet);
+  if (DOM.accountMenuSection) {
+    DOM.accountMenuSection.open = true;
+  }
 }
 
 function stopBoardListeners() {
@@ -665,10 +695,10 @@ function subscribeToBoards(userId) {
 
   unsubscribeSharedBoards = listenForSharedBoards(
     userId,
-    async (snapshot) => {
+    state.currentUser?.email || '',
+    async (sharedEntries) => {
       try {
-        const sharedBoards = await Promise.all(snapshot.docs.map(async (docSnap) => {
-          const sharedData = docSnap.data();
+        const sharedBoards = await Promise.all(sharedEntries.map(async (sharedData) => {
           const boardSnap = await getBoard(sharedData.boardId);
           if (!boardSnap) return null;
           return {
@@ -733,14 +763,15 @@ async function handleAuthStateChange(user) {
   state.sharedBoards = [];
   renderBoardLists();
 
-  try {
-    if (user) {
+  if (user) {
+    try {
       await promoteGuestAccessIfNeeded(user);
-      subscribeToBoards(user.uid);
+    } catch (error) {
+      console.warn('Skipping guest access promotion:', error);
+      clearGuestSession();
     }
-  } catch (error) {
-    console.error(error);
-    showToast(`Could not save guest access: ${error.message}`, 'error');
+
+    subscribeToBoards(user.uid);
   }
 
   await refreshCurrentBoardAccess();
@@ -751,7 +782,6 @@ async function handleSignIn() {
   setButtonBusy(DOM.signInBtn, true, 'Signing in…');
   try {
     await signInWithEmail(DOM.emailInput.value, DOM.passwordInput.value);
-    closeSheet(DOM.accountSheet);
     showToast('Signed in.', 'success');
   } catch (error) {
     setInlineStatus(DOM.accountHint, error.message, 'error');
@@ -764,7 +794,6 @@ async function handleCreateAccount() {
   setButtonBusy(DOM.createAccountBtn, true, 'Creating…');
   try {
     await createAccount(DOM.emailInput.value, DOM.passwordInput.value);
-    closeSheet(DOM.accountSheet);
     showToast('Account created.', 'success');
   } catch (error) {
     setInlineStatus(DOM.accountHint, error.message, 'error');
@@ -777,7 +806,6 @@ async function handleSignOut() {
   setButtonBusy(DOM.signOutBtn, true, 'Signing out…');
   try {
     await signOutUser();
-    closeSheet(DOM.accountSheet);
     showToast('Signed out.', 'success');
   } catch (error) {
     showToast(`Could not sign out: ${error.message}`, 'error');
@@ -791,7 +819,7 @@ async function handleCreateBoardSubmit(event) {
 
   if (!state.currentUser) {
     setInlineStatus(DOM.createBoardStatus, 'Create an account or sign in before creating a board.', 'warning');
-    openSheet(DOM.accountSheet);
+    openAccountMenuSection();
     return;
   }
 
@@ -948,11 +976,6 @@ function beginPlacement(mode) {
   closeAllSheets();
   DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Problem details' : 'New problem';
   DOM.problemMetaPanel.open = false;
-  showPlacementHint(
-    state.problemSheetMode === 'create'
-      ? 'Step 1: place the holds. Step 2: add the name and grade. Step 3: save.'
-      : 'Update holds here, or open details to change the name, notes, and grade.'
-  );
   renderShell();
 }
 
@@ -1090,10 +1113,8 @@ async function handleDeleteProblem() {
 function bindEvents() {
   DOM.openBoardsBtn.addEventListener('click', () => openSheet(DOM.boardsSheet));
   DOM.openProblemsBtn.addEventListener('click', () => openSheet(DOM.problemsSheet));
-  DOM.openAccountBtn.addEventListener('click', () => openSheet(DOM.accountSheet));
   DOM.closeBoardsSheetBtn.addEventListener('click', () => closeSheet(DOM.boardsSheet));
   DOM.closeProblemsSheetBtn.addEventListener('click', () => closeSheet(DOM.problemsSheet));
-  DOM.closeAccountSheetBtn.addEventListener('click', () => closeSheet(DOM.accountSheet));
   DOM.closeCreateBoardSheetBtn.addEventListener('click', () => closeSheet(DOM.createBoardSheet));
   DOM.closeJoinCodeSheetBtn.addEventListener('click', () => closeSheet(DOM.joinCodeSheet));
   DOM.closeProblemSheetBtn.addEventListener('click', closeProblemDetails);

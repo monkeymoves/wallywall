@@ -1,5 +1,39 @@
 # WallyWall Change Log
 
+## 2026-04-08
+
+### Shared Access And Auth Cleanup
+- Removed the legacy auth-time permission migration path that was still causing permission-denied errors during login.
+- Simplified shared board loading so it now relies on the canonical `users/{uid}/sharedBoards/{boardId}` path.
+- Kept guest access promotion best-effort so stale guest state no longer blocks account board loading.
+- Updated Firestore permission handling to support the current shared-board model more cleanly.
+
+### Problems And Grade Filter
+- Replaced the old static grade filter list with a live list built from the current board’s actual problem grades.
+- Fixed the stale upper-grade issue where deleted grades could still appear in the Problems filter.
+
+### Header And Menu Cleanup
+- Simplified the non-edit header to focus on:
+  - menu
+  - board name
+  - Problems
+  - create problem
+- Removed the separate top-bar account control and folded account management into the menu.
+- Reworked the menu away from chunky shortcut cards toward a simpler single-column list plus disclosure sections.
+- Kept board access and sharing available inside the menu while reducing visual clutter.
+
+### Board View Cleanup
+- Removed the header problem summary so the top bar focuses on board context only.
+- Kept problem name and grade presentation below the board instead of competing with the board title.
+- Flattened the selected-problem strip so it reads more like lightweight board context than a heavy card.
+
+### Shared Board Compatibility Work
+- Added support for the backend shape already present in Firebase for shared boards.
+- Confirmed that shared-board data exists in both:
+  - `/boards/{boardId}/permissions/{userUid}`
+  - `/users/{uid}/sharedBoards/{boardId}`
+- Adjusted the app so canonical shared board data is preferred rather than trying to repair legacy state on every sign-in.
+
 ## 2026-04-06
 
 ### Board-First Mobile Redesign
