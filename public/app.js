@@ -27,6 +27,29 @@ import {
   setGuestSession,
   setSelectedBoardId,
 } from './appState.js';
+import {
+  canDeleteProblem,
+  canEditBoard,
+  getAccessPresentation,
+  getGuestAccessForBoard,
+  isBoardOwner,
+  normalizeCode,
+  randomAccessCode,
+} from './accessHelpers.js';
+import {
+  emptyProblemDraft,
+  applyDraftToForm,
+  formToDraft,
+  isDraftDirty,
+  problemToDraft,
+} from './problemDraft.js';
+import {
+  getAdjacentProblemId,
+  getFilteredProblems,
+  getProblemById,
+  getProblemGradeOptions,
+  getProblemPosition,
+} from './problemBrowser.js';
 import { ProblemEditor } from './problemEditor.js';
 import {
   DOM,
@@ -60,15 +83,14 @@ const state = {
   problemSheetMode: 'create',
   latestGeneratedCode: null,
   boardLoadToken: 0,
-  placementHintMessage: '',
-  showPlacementHint: false,
+  draftBaseline: emptyProblemDraft(),
+  prePlacementProblemId: '',
 };
 
 let unsubscribeOwnedBoards = null;
 let unsubscribeSharedBoards = null;
 let unsubscribeSharedUsers = null;
 let boardResizeObserver = null;
-let placementHintTimeout = null;
 
 function slugify(value) {
   return value
@@ -78,163 +100,69 @@ function slugify(value) {
     .slice(0, 40);
 }
 
-function normalizeCode(value) {
-  return value.trim().toUpperCase();
-}
-
-function gradeValue(grade) {
-  if (!grade) return -1;
-  const match = grade.match(/V(\d+)(\+)?/);
-  if (!match) return -1;
-  return Number.parseInt(match[1], 10) + (match[2] ? 0.5 : 0);
-}
-
-function randomCode() {
-  return (Math.random().toString(36) + '000000000000')
-    .slice(2, 8)
-    .toUpperCase();
-}
-
-function isOwner() {
-  return Boolean(
-    state.currentUser &&
-    state.currentBoard &&
-    state.currentUser.uid === state.currentBoard.ownerUid
-  );
+function getSelectedProblem() {
+  return getProblemById(state.currentProblems, state.selectedProblemId);
 }
 
 function getGuestAccessForCurrentBoard() {
-  const guestSession = getGuestSession();
-  if (!guestSession || !state.currentBoard) return null;
-  return guestSession.boardId === state.currentBoard.id ? guestSession : null;
+  return getGuestAccessForBoard(getGuestSession(), state.currentBoard?.id);
+}
+
+function isOwner() {
+  return isBoardOwner(state.currentUser, state.currentBoard);
 }
 
 function canEditCurrentBoard() {
-  if (isOwner()) return true;
-  if (state.currentUser && state.sharedAccessLevel === 'edit') return true;
-  return getGuestAccessForCurrentBoard()?.level === 'edit';
+  return canEditBoard({
+    currentUser: state.currentUser,
+    currentBoard: state.currentBoard,
+    sharedAccessLevel: state.sharedAccessLevel,
+    guestSession: getGuestAccessForCurrentBoard(),
+  });
 }
 
-function canDeleteCurrentBoard() {
-  if (isOwner()) return true;
-  return Boolean(state.currentUser && state.sharedAccessLevel === 'edit');
+function canDeleteCurrentProblem() {
+  return canDeleteProblem({
+    currentUser: state.currentUser,
+    currentBoard: state.currentBoard,
+    sharedAccessLevel: state.sharedAccessLevel,
+  });
 }
 
-function getAccessPresentation() {
-  if (!state.currentBoard) {
-    return { label: '', className: 'hidden', description: '' };
-  }
-
-  if (isOwner()) {
-    return {
-      label: 'Owner',
-      className: 'pill-owner',
-      description: `You own ${state.currentBoard.name}.`,
-    };
-  }
-
-  if (state.currentUser && state.sharedAccessLevel === 'edit') {
-    return {
-      label: 'Member editor',
-      className: 'pill-member-edit',
-      description: `You have signed-in edit access to ${state.currentBoard.name}.`,
-    };
-  }
-
-  if (state.currentUser && state.sharedAccessLevel === 'read') {
-    return {
-      label: 'Member viewer',
-      className: 'pill-member-read',
-      description: `You can view ${state.currentBoard.name} but cannot edit problems.`,
-    };
-  }
-
-  const guestAccess = getGuestAccessForCurrentBoard();
-  if (guestAccess?.level === 'edit') {
-    return {
-      label: 'Guest editor',
-      className: 'pill-guest-edit',
-      description: `You are using a temporary edit code for ${state.currentBoard.name}.`,
-    };
-  }
-
-  if (guestAccess?.level === 'read') {
-    return {
-      label: 'Guest viewer',
-      className: 'pill-guest-read',
-      description: `You are using a temporary read code for ${state.currentBoard.name}.`,
-    };
-  }
-
-  return {
-    label: 'View only',
-    className: 'pill-view-only',
-    description: `This board is visible, but you do not currently have edit access.`,
-  };
-}
-
-function getSelectedProblem() {
-  return state.currentProblems.find((problem) => problem.id === state.selectedProblemId) || null;
-}
-
-function clearPlacementHintTimer() {
-  if (placementHintTimeout) {
-    window.clearTimeout(placementHintTimeout);
-    placementHintTimeout = null;
-  }
-}
-
-function hidePlacementHint() {
-  clearPlacementHintTimer();
-  state.showPlacementHint = false;
-  if (DOM.placementHint) {
-    DOM.placementHint.classList.add('hidden');
-    DOM.placementHint.textContent = '';
-  }
-}
-
-function showPlacementHint(message, timeoutMs = 1600) {
-  clearPlacementHintTimer();
-  state.placementHintMessage = message;
-  state.showPlacementHint = true;
-  if (DOM.placementHint) {
-    DOM.placementHint.textContent = message;
-    DOM.placementHint.classList.remove('hidden');
-  }
-
-  placementHintTimeout = window.setTimeout(() => {
-    state.showPlacementHint = false;
-    if (DOM.placementHint) {
-      DOM.placementHint.classList.add('hidden');
-    }
-    placementHintTimeout = null;
-  }, timeoutMs);
+function getCurrentDraft() {
+  return formToDraft(DOM, editor.getHolds());
 }
 
 function resetProblemForm() {
-  DOM.problemName.value = '';
-  DOM.problemDesc.value = '';
-  DOM.problemGrade.value = '';
+  applyDraftToForm(DOM, emptyProblemDraft());
 }
 
 function populateProblemForm(problem) {
-  DOM.problemName.value = problem?.name || '';
-  DOM.problemDesc.value = problem?.description || '';
-  DOM.problemGrade.value = problem?.grade || '';
+  applyDraftToForm(DOM, problemToDraft(problem));
 }
 
-function getProblemGradeOptions() {
-  const uniqueGrades = [...new Set(
-    state.currentProblems
-      .map((problem) => problem.grade)
-      .filter(Boolean)
-  )];
-
-  return uniqueGrades.sort((left, right) => gradeValue(left) - gradeValue(right));
+function clearCurrentBoardState() {
+  state.currentBoard = null;
+  state.currentProblems = [];
+  state.filteredProblems = [];
+  state.selectedProblemId = '';
+  state.sharedAccessLevel = null;
+  state.latestGeneratedCode = null;
+  state.selectedGradeFilter = 'all';
+  state.isPlacementMode = false;
+  state.problemSheetMode = 'create';
+  state.draftBaseline = emptyProblemDraft();
+  state.prePlacementProblemId = '';
+  editor.setActive(false);
+  editor.clear();
+  clearSelectedBoardId();
+  stopSharedUsersListener();
+  renderProblemBrowser();
+  renderShell();
 }
 
 function syncProblemGradeFilterOptions() {
-  const gradeOptions = getProblemGradeOptions();
+  const gradeOptions = getProblemGradeOptions(state.currentProblems);
   const hasSelectedGrade = state.selectedGradeFilter !== 'all' && gradeOptions.includes(state.selectedGradeFilter);
 
   if (!hasSelectedGrade) {
@@ -258,58 +186,79 @@ function syncProblemGradeFilterOptions() {
   DOM.problemGradeFilter.value = state.selectedGradeFilter;
 }
 
+function updateProblemNavButtons() {
+  const previousId = getAdjacentProblemId(state.filteredProblems, state.selectedProblemId, -1);
+  const nextId = getAdjacentProblemId(state.filteredProblems, state.selectedProblemId, 1);
+  DOM.prevProblemBtn.disabled = !previousId;
+  DOM.nextProblemBtn.disabled = !nextId;
+}
+
 function renderProblemDetails() {
   const selectedProblem = getSelectedProblem();
 
   if (state.isPlacementMode) {
     DOM.problemInfoCard.classList.add('hidden');
-    DOM.currentProblemSummary.classList.add('hidden');
-    DOM.currentProblemSummary.textContent = '';
+    updateProblemNavButtons();
     return;
   }
 
   if (!selectedProblem) {
     DOM.problemInfoCard.classList.add('hidden');
-    DOM.currentProblemSummary.classList.add('hidden');
-    DOM.currentProblemSummary.textContent = '';
+    DOM.problemPositionText.textContent = '';
     editor.clear();
+    updateProblemNavButtons();
     return;
   }
 
+  const { index, total } = getProblemPosition(state.filteredProblems, selectedProblem.id);
+
   DOM.problemInfoCard.classList.remove('hidden');
-  DOM.currentProblemSummary.classList.add('hidden');
-  DOM.currentProblemSummary.textContent = '';
   DOM.problemGradeDisplay.textContent = selectedProblem.grade || 'Ungraded';
   DOM.problemInfoName.textContent = selectedProblem.name || 'Untitled problem';
-  DOM.problemDescriptionText.textContent = selectedProblem.description || 'No description yet.';
+  DOM.problemDescriptionText.textContent = selectedProblem.description || 'No notes yet.';
+  DOM.problemPositionText.textContent = total ? `${index + 1} / ${total}` : '';
   editor.setHolds(selectedProblem.holds || []);
+  updateProblemNavButtons();
+}
+
+function selectProblem(problemId, { closeBrowser = false } = {}) {
+  state.selectedProblemId = problemId || '';
+  renderProblemBrowser();
+  renderProblemDetails();
+  renderShell();
+  if (closeBrowser) {
+    closeSheet(DOM.problemsSheet);
+  }
+}
+
+function navigateProblems(direction) {
+  if (!state.filteredProblems.length || state.isPlacementMode) return;
+
+  if (!state.selectedProblemId) {
+    selectProblem(state.filteredProblems[0].id);
+    return;
+  }
+
+  const adjacentId = getAdjacentProblemId(state.filteredProblems, state.selectedProblemId, direction);
+  if (!adjacentId) return;
+  selectProblem(adjacentId);
 }
 
 function renderProblemBrowser() {
-  const selectedProblem = getSelectedProblem();
   syncProblemGradeFilterOptions();
+  state.filteredProblems = getFilteredProblems(state.currentProblems, state.selectedGradeFilter);
 
-  const filteredProblems = [...state.currentProblems]
-    .filter((problem) => state.selectedGradeFilter === 'all' || problem.grade === state.selectedGradeFilter)
-    .sort((left, right) => {
-      const gradeDiff = gradeValue(left.grade) - gradeValue(right.grade);
-      if (gradeDiff !== 0) return gradeDiff;
-      return (left.name || '').localeCompare(right.name || '');
-    });
-
-  state.filteredProblems = filteredProblems;
-
-  DOM.problemSearchSummary.textContent = state.selectedGradeFilter === 'all'
-    ? `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} available.`
-    : `${filteredProblems.length} problem${filteredProblems.length === 1 ? '' : 's'} at ${state.selectedGradeFilter}.`;
-
-  DOM.problemResultsList.innerHTML = '';
-
-  if (selectedProblem && !filteredProblems.some((problem) => problem.id === selectedProblem.id)) {
+  if (state.selectedProblemId && !state.filteredProblems.some((problem) => problem.id === state.selectedProblemId)) {
     state.selectedProblemId = '';
   }
 
-  if (filteredProblems.length === 0) {
+  DOM.problemSearchSummary.textContent = state.selectedGradeFilter === 'all'
+    ? `${state.filteredProblems.length} problem${state.filteredProblems.length === 1 ? '' : 's'} on this board.`
+    : `${state.filteredProblems.length} ${state.selectedGradeFilter} problem${state.filteredProblems.length === 1 ? '' : 's'}.`;
+
+  DOM.problemResultsList.innerHTML = '';
+
+  if (!state.filteredProblems.length) {
     const empty = document.createElement('p');
     empty.className = 'sheet-copy';
     empty.textContent = state.selectedGradeFilter === 'all'
@@ -317,10 +266,10 @@ function renderProblemBrowser() {
       : `No ${state.selectedGradeFilter} problems on this board yet.`;
     DOM.problemResultsList.append(empty);
   } else {
-    filteredProblems.forEach((problem) => {
+    state.filteredProblems.forEach((problem) => {
       const button = document.createElement('button');
-      const meta = document.createElement('div');
       const title = document.createElement('strong');
+      const meta = document.createElement('div');
       const grade = document.createElement('span');
       const note = document.createElement('span');
 
@@ -330,25 +279,21 @@ function renderProblemBrowser() {
 
       title.textContent = problem.name || 'Untitled problem';
       grade.textContent = problem.grade || 'Ungraded';
-      note.textContent = problem.description ? problem.description.slice(0, 80) : 'No description';
+      note.textContent = problem.description ? problem.description.slice(0, 88) : 'No notes';
       meta.className = 'problem-browser-meta';
       meta.append(grade, note);
 
       button.append(title, meta);
       button.addEventListener('click', () => {
-        state.selectedProblemId = problem.id;
-        renderProblemDetails();
-        renderProblemBrowser();
-        renderShell();
-        closeSheet(DOM.problemsSheet);
+        selectProblem(problem.id, { closeBrowser: true });
       });
+
       DOM.problemResultsList.append(button);
     });
   }
 
   DOM.problemEmptyState.classList.toggle('hidden', !state.currentBoard || state.currentProblems.length > 0);
-  renderProblemDetails();
-  renderShell();
+  updateProblemNavButtons();
 }
 
 function renderBoardList(listElement, boards) {
@@ -357,13 +302,13 @@ function renderBoardList(listElement, boards) {
   boards.forEach((board) => {
     const listItem = document.createElement('li');
     const button = document.createElement('button');
+    const title = document.createElement('strong');
+    const subtitle = document.createElement('span');
+
     button.type = 'button';
     button.classList.toggle('active', state.currentBoard?.id === board.id);
 
-    const title = document.createElement('strong');
     title.textContent = board.name || 'Untitled board';
-
-    const subtitle = document.createElement('span');
     subtitle.textContent = board.source === 'owned'
       ? 'Owned by you'
       : board.level === 'edit'
@@ -388,17 +333,16 @@ function renderBoardLists() {
   if (!state.currentUser) {
     DOM.ownedBoardsSection.classList.add('hidden');
     DOM.sharedBoardsSection.classList.add('hidden');
-    DOM.boardsListMessage.textContent = 'Sign in to see your saved boards. You can still join any board with a code.';
+    DOM.boardsListMessage.textContent = 'Sign in to keep your boards and shared access in sync.';
     return;
   }
 
-  if (state.ownedBoards.length === 0 && state.sharedBoards.length === 0) {
-    DOM.boardsListMessage.textContent = 'No boards yet. Create your first board or join one with a code.';
-  } else {
-    DOM.boardsListMessage.textContent = 'Open one of your boards, switch to a shared wall, or create a new board.';
-  }
   DOM.ownedBoardsSection.classList.toggle('hidden', state.ownedBoards.length === 0);
   DOM.sharedBoardsSection.classList.toggle('hidden', state.sharedBoards.length === 0);
+
+  DOM.boardsListMessage.textContent = state.ownedBoards.length === 0 && state.sharedBoards.length === 0
+    ? 'No saved boards yet. Create your wall or join one with a code.'
+    : 'Open a wall, manage sharing, or add a new board photo.';
 
   renderBoardList(DOM.ownedBoardsList, state.ownedBoards);
   renderBoardList(DOM.sharedBoardsList, state.sharedBoards);
@@ -448,11 +392,11 @@ function renderAccountState() {
 
   if (loggedIn) {
     DOM.signedInEmail.textContent = state.currentUser.email || 'Signed in';
-    DOM.accountStatus.textContent = 'You can create boards, keep shared access between visits, and manage your boards.';
+    DOM.accountStatus.textContent = 'Create boards, save shared access, and manage guest codes.';
     return;
   }
 
-  DOM.accountStatus.textContent = 'Sign in to create boards and keep shared boards saved to your account.';
+  DOM.accountStatus.textContent = 'Sign in to create boards and save shared boards to your account.';
 }
 
 function renderAccessSheet() {
@@ -461,20 +405,34 @@ function renderAccessSheet() {
     DOM.boardAccessCaption.textContent = 'Choose a board to see permissions and sharing options.';
     DOM.ownerAccessSection.classList.add('hidden');
     DOM.memberAccessSection.classList.add('hidden');
+    DOM.guestAccessSection.classList.add('hidden');
     return;
   }
 
-  const presentation = getAccessPresentation();
+  const presentation = getAccessPresentation({
+    currentBoard: state.currentBoard,
+    currentUser: state.currentUser,
+    sharedAccessLevel: state.sharedAccessLevel,
+    guestSession: getGuestAccessForCurrentBoard(),
+  });
+
   DOM.boardAccessSection.classList.remove('hidden');
   DOM.boardAccessCaption.textContent = presentation.description;
+
+  const guestAccess = getGuestAccessForCurrentBoard();
 
   if (isOwner()) {
     DOM.ownerAccessSection.classList.remove('hidden');
     DOM.memberAccessSection.classList.add('hidden');
   } else {
     DOM.ownerAccessSection.classList.add('hidden');
-    DOM.memberAccessSection.classList.remove('hidden');
+    DOM.memberAccessSection.classList.toggle('hidden', !state.currentUser);
     DOM.memberAccessText.textContent = presentation.description;
+  }
+
+  DOM.guestAccessSection.classList.toggle('hidden', !guestAccess);
+  if (guestAccess) {
+    DOM.guestAccessText.textContent = `${state.currentBoard.name} is remembered on this device with ${guestAccess.level} access. Remove it here if you want the code to be required again.`;
   }
 
   DOM.generatedCodePanel.classList.toggle('hidden', !state.latestGeneratedCode);
@@ -486,7 +444,12 @@ function renderAccessSheet() {
 
 function renderShell() {
   const hasBoard = Boolean(state.currentBoard);
+  const isCreateMode = state.problemSheetMode === 'create';
+  const hasSelectedProblem = Boolean(state.selectedProblemId);
+
   document.body.classList.toggle('editing-mode', state.isPlacementMode);
+  document.body.classList.toggle('create-mode', state.isPlacementMode && isCreateMode);
+  document.body.classList.toggle('update-mode', state.isPlacementMode && !isCreateMode);
 
   DOM.currentBoardName.textContent = hasBoard ? state.currentBoard.name || 'Untitled board' : 'Choose a board';
   DOM.welcomeMessage.classList.toggle('hidden', hasBoard);
@@ -497,26 +460,22 @@ function renderShell() {
   DOM.editTopbar.classList.toggle('hidden', !state.isPlacementMode);
   DOM.placementMetaStrip.classList.toggle('hidden', !state.isPlacementMode);
   DOM.editControls.classList.toggle('hidden', !state.isPlacementMode);
-  const isCreateMode = state.problemSheetMode === 'create';
-  document.body.classList.toggle('create-mode', state.isPlacementMode && isCreateMode);
-  document.body.classList.toggle('update-mode', state.isPlacementMode && !isCreateMode);
-  DOM.editModeBanner.textContent = isCreateMode ? 'Creating problem' : 'Editing problem';
-  DOM.placementModePill.textContent = isCreateMode ? 'Step 2' : 'Details';
-  DOM.openProblemDetailsBtn.textContent = isCreateMode ? 'Add name, grade & notes' : 'Edit name, grade & notes';
-  DOM.openProblemDetailsBtn.classList.toggle('primary', false);
-  hidePlacementHint();
 
-  const hasSelectedProblem = Boolean(state.selectedProblemId);
+  DOM.editModeBanner.textContent = isCreateMode ? 'Creating' : 'Editing';
+  DOM.placementModePill.textContent = isCreateMode ? 'New draft' : 'Hold layout';
+  DOM.openProblemDetailsBtn.textContent = 'Details';
+  DOM.problemSheetEyebrow.textContent = isCreateMode ? 'New problem' : 'Problem';
+  DOM.problemSheetTitle.textContent = isCreateMode ? 'Name, grade & notes' : 'Edit details';
+
   DOM.newProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || state.isPlacementMode);
   DOM.editProblemBtn.classList.toggle('hidden', !hasBoard || !canEditCurrentBoard() || !hasSelectedProblem || state.isPlacementMode);
-  DOM.deleteProblemBtn.classList.add('hidden');
   DOM.deleteProblemSheetBtn.classList.toggle(
     'hidden',
-    !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentBoard()
+    !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentProblem()
   );
   DOM.deleteProblemRow.classList.toggle(
     'hidden',
-    !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentBoard()
+    !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentProblem()
   );
 
   renderAccessSheet();
@@ -544,12 +503,7 @@ function stopSharedUsersListener() {
 }
 
 async function refreshCurrentBoardAccess() {
-  if (!state.currentBoard) {
-    state.sharedAccessLevel = null;
-    return;
-  }
-
-  if (isOwner()) {
+  if (!state.currentBoard || isOwner()) {
     state.sharedAccessLevel = null;
     return;
   }
@@ -577,15 +531,7 @@ async function loadBoardById(boardId, options = {}) {
     if (getGuestSession()?.boardId === boardId) {
       clearGuestSession();
     }
-    clearSelectedBoardId();
-
-    if (state.currentBoard?.id === boardId) {
-      state.currentBoard = null;
-      state.currentProblems = [];
-      state.selectedProblemId = '';
-      editor.clear();
-      renderShell();
-    }
+    clearCurrentBoardState();
     return false;
   }
 
@@ -595,7 +541,7 @@ async function loadBoardById(boardId, options = {}) {
 
 async function loadBoard(boardId, boardData, options = {}) {
   state.currentBoard = { ...boardData, id: boardId };
-  state.selectedProblemId = '';
+  state.selectedProblemId = options.preserveSelected ? state.selectedProblemId : '';
   state.latestGeneratedCode = null;
   state.selectedGradeFilter = 'all';
   setSelectedBoardId(boardId);
@@ -643,17 +589,20 @@ async function loadBoard(boardId, boardData, options = {}) {
 
 async function restoreBoardOnBoot() {
   const guestSession = getGuestSession();
-  const selectedBoardId = guestSession?.boardId || getSelectedBoardId();
-  if (!selectedBoardId) {
+  if (!guestSession?.boardId) {
     renderShell();
     return;
   }
 
   try {
-    await loadBoardById(selectedBoardId, { preserveSelected: true });
+    const restored = await loadBoardById(guestSession.boardId, { preserveSelected: true });
+    if (!restored) {
+      clearGuestSession();
+    }
   } catch (error) {
     console.error(error);
-    showBoardStatus('Could not restore the last board.', 'warning');
+    clearGuestSession();
+    showBoardStatus('Could not restore remembered guest access.', 'warning');
   }
 }
 
@@ -762,6 +711,10 @@ async function handleAuthStateChange(user) {
   state.ownedBoards = [];
   state.sharedBoards = [];
   renderBoardLists();
+
+  if (!user && state.currentBoard && !getGuestAccessForCurrentBoard()) {
+    clearCurrentBoardState();
+  }
 
   if (user) {
     try {
@@ -894,16 +847,17 @@ async function handleJoinCodeSubmit(event) {
 
     if (state.currentUser && boardData.ownerUid !== state.currentUser.uid) {
       await shareBoardWithUser(boardId, boardData.name, state.currentUser.uid, state.currentUser.email, level, code);
-      showToast(`Saved ${boardData.name} to your account.`, 'success');
       clearGuestSession();
+      showToast(`Saved ${boardData.name} to your account.`, 'success');
     } else if (!state.currentUser) {
       setGuestSession({
         boardId,
         boardName: boardData.name,
         code,
         level,
+        grantedAt: new Date().toISOString(),
       });
-      showToast(`Joined ${boardData.name} for this session.`, 'success');
+      showToast(`Remembering ${boardData.name} on this device.`, 'success');
     }
 
     DOM.joinCodeForm.reset();
@@ -918,16 +872,28 @@ async function handleJoinCodeSubmit(event) {
   }
 }
 
+async function generateUniqueAccessCode() {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const candidate = randomAccessCode(8);
+    const existingCode = await getAccessCode(candidate);
+    if (!existingCode) {
+      return candidate;
+    }
+  }
+
+  throw new Error('Could not generate a unique board code. Try again.');
+}
+
 async function handleGenerateCode(level) {
   if (!state.currentBoard || !isOwner()) {
     showToast('Only the board owner can generate access codes.', 'error');
     return;
   }
 
-  const code = randomCode();
   const trigger = level === 'edit' ? DOM.generateEditCodeBtn : DOM.generateReadCodeBtn;
   setButtonBusy(trigger, true, 'Generating…');
   try {
+    const code = await generateUniqueAccessCode();
     await addAccessCode(state.currentBoard.id, code, level, state.currentBoard.name, state.currentUser.uid);
     state.latestGeneratedCode = { code, level };
     renderAccessSheet();
@@ -956,11 +922,14 @@ function beginPlacement(mode) {
   }
 
   state.problemSheetMode = mode;
+  state.prePlacementProblemId = state.selectedProblemId;
   state.isPlacementMode = true;
 
   if (mode === 'create') {
+    state.selectedProblemId = '';
     resetProblemForm();
     editor.clear();
+    state.draftBaseline = emptyProblemDraft();
   } else {
     const selectedProblem = getSelectedProblem();
     if (!selectedProblem) {
@@ -970,19 +939,21 @@ function beginPlacement(mode) {
     }
     populateProblemForm(selectedProblem);
     editor.setHolds(selectedProblem.holds || []);
+    state.draftBaseline = problemToDraft({
+      ...selectedProblem,
+      holds: selectedProblem.holds || [],
+    });
   }
 
   editor.setActive(true);
   closeAllSheets();
-  DOM.problemSheetTitle.textContent = state.problemSheetMode === 'edit' ? 'Problem details' : 'New problem';
-  DOM.problemMetaPanel.open = false;
+  renderProblemBrowser();
+  renderProblemDetails();
   renderShell();
 }
 
 function openProblemDetails() {
   if (!state.isPlacementMode) return;
-  hidePlacementHint();
-  DOM.problemMetaPanel.open = true;
   openSheet(DOM.problemSheet);
 }
 
@@ -990,11 +961,17 @@ function closeProblemDetails() {
   closeSheet(DOM.problemSheet);
 }
 
-function cancelPlacement() {
+function exitPlacement({ restorePreviousSelection = true } = {}) {
   state.isPlacementMode = false;
-  hidePlacementHint();
   closeSheet(DOM.problemSheet);
   editor.setActive(false);
+
+  if (restorePreviousSelection && state.problemSheetMode === 'create') {
+    state.selectedProblemId = state.prePlacementProblemId;
+  }
+
+  state.prePlacementProblemId = '';
+  state.draftBaseline = emptyProblemDraft();
 
   const selectedProblem = getSelectedProblem();
   if (selectedProblem) {
@@ -1003,8 +980,24 @@ function cancelPlacement() {
     editor.clear();
   }
 
+  renderProblemBrowser();
   renderProblemDetails();
   renderShell();
+}
+
+async function cancelPlacement() {
+  const dirty = isDraftDirty(state.draftBaseline, getCurrentDraft());
+  if (dirty) {
+    const confirmed = await showConfirm({
+      title: 'Discard this draft?',
+      body: 'You have unsaved changes to the current problem. Discard them and leave edit mode?',
+      confirmLabel: 'Discard changes',
+    });
+
+    if (!confirmed) return;
+  }
+
+  exitPlacement({ restorePreviousSelection: true });
 }
 
 async function handleSaveProblem() {
@@ -1013,23 +1006,24 @@ async function handleSaveProblem() {
     return;
   }
 
-  const name = DOM.problemName.value.trim();
-  if (!name) {
+  const currentDraft = getCurrentDraft();
+  if (!currentDraft.name) {
     openProblemDetails();
-    showToast('Add a name and grade before saving the problem.', 'warning');
+    showToast('Add a problem name before saving.', 'warning');
     return;
   }
-  if (!DOM.problemGrade.value) {
+
+  if (!currentDraft.grade) {
     openProblemDetails();
     showToast('Choose a grade before saving the problem.', 'warning');
     return;
   }
 
   const problemData = {
-    name,
-    description: DOM.problemDesc.value.trim(),
-    grade: DOM.problemGrade.value,
-    holds: editor.getHolds(),
+    name: currentDraft.name,
+    description: currentDraft.description,
+    grade: currentDraft.grade,
+    holds: currentDraft.holds,
   };
 
   const guestAccess = getGuestAccessForCurrentBoard();
@@ -1040,6 +1034,7 @@ async function handleSaveProblem() {
   const busyLabel = state.problemSheetMode === 'edit' ? 'Updating…' : 'Saving…';
   setButtonBusy(DOM.saveProblemBtn, true, busyLabel);
   setButtonBusy(DOM.saveProblemDetailsBtn, true, busyLabel);
+
   try {
     let selectedProblemId = state.selectedProblemId;
 
@@ -1053,13 +1048,9 @@ async function handleSaveProblem() {
       selectedProblemId = newProblemRef.id;
     }
 
-    state.isPlacementMode = false;
-    hidePlacementHint();
-    editor.setActive(false);
-    closeSheet(DOM.problemSheet);
-
-    await loadProblems(state.currentBoard.id, { preserveSelected: false });
     state.selectedProblemId = selectedProblemId;
+    exitPlacement({ restorePreviousSelection: false });
+    await loadProblems(state.currentBoard.id, { preserveSelected: true });
     renderProblemBrowser();
     renderProblemDetails();
     renderShell();
@@ -1074,7 +1065,7 @@ async function handleSaveProblem() {
 
 async function handleDeleteProblem() {
   const selectedProblem = getSelectedProblem();
-  if (!selectedProblem || !canDeleteCurrentBoard()) return;
+  if (!selectedProblem || !canDeleteCurrentProblem()) return;
 
   closeSheet(DOM.problemSheet);
 
@@ -1097,17 +1088,66 @@ async function handleDeleteProblem() {
 
   try {
     await deleteProblem(state.currentBoard.id, selectedProblem.id);
-    state.isPlacementMode = false;
-    hidePlacementHint();
-    editor.setActive(false);
-    closeSheet(DOM.problemSheet);
     state.selectedProblemId = '';
+    exitPlacement({ restorePreviousSelection: false });
     await loadProblems(state.currentBoard.id, { preserveSelected: false });
     renderShell();
     showToast('Problem deleted.', 'success');
   } catch (error) {
     showToast(`Could not delete the problem: ${error.message}`, 'error');
   }
+}
+
+async function clearRememberedGuestAccess() {
+  const guestAccess = getGuestAccessForCurrentBoard();
+  if (!guestAccess) return;
+
+  const confirmed = await showConfirm({
+    title: 'Remove device access?',
+    body: `Stop remembering ${state.currentBoard?.name || 'this board'} on this device? The access code will be required again later.`,
+    confirmLabel: 'Remove access',
+  });
+
+  if (!confirmed) return;
+
+  clearGuestSession();
+
+  if (!state.currentUser) {
+    clearCurrentBoardState();
+    closeSheet(DOM.boardsSheet);
+  } else {
+    renderAccessSheet();
+    renderShell();
+  }
+
+  showToast('Removed remembered guest access.', 'success');
+}
+
+function bindSwipeNavigation(element) {
+  if (!element) return;
+
+  let startX = 0;
+  let startY = 0;
+
+  element.addEventListener('touchstart', (event) => {
+    const touch = event.changedTouches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+  }, { passive: true });
+
+  element.addEventListener('touchend', (event) => {
+    if (state.isPlacementMode) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+      return;
+    }
+
+    navigateProblems(deltaX < 0 ? 1 : -1);
+  }, { passive: true });
 }
 
 function bindEvents() {
@@ -1119,9 +1159,12 @@ function bindEvents() {
   DOM.closeJoinCodeSheetBtn.addEventListener('click', () => closeSheet(DOM.joinCodeSheet));
   DOM.closeProblemSheetBtn.addEventListener('click', closeProblemDetails);
   DOM.cancelSheetBtn.addEventListener('click', closeProblemDetails);
+
   DOM.problemGradeFilter.addEventListener('change', (event) => {
     state.selectedGradeFilter = event.target.value || 'all';
     renderProblemBrowser();
+    renderProblemDetails();
+    renderShell();
   });
 
   DOM.welcomeJoinBtn.addEventListener('click', () => openSheet(DOM.joinCodeSheet));
@@ -1131,7 +1174,7 @@ function bindEvents() {
     openSheet(DOM.createBoardSheet);
     setInlineStatus(
       DOM.createBoardStatus,
-      state.currentUser ? 'Upload a board image to start creating problems.' : 'You need an account to create a board.',
+      state.currentUser ? 'Upload a board photo to start setting problems.' : 'You need an account to create a board.',
       state.currentUser ? 'info' : 'warning'
     );
   });
@@ -1151,23 +1194,20 @@ function bindEvents() {
   DOM.generateReadCodeBtn.addEventListener('click', () => handleGenerateCode('read'));
   DOM.generateEditCodeBtn.addEventListener('click', () => handleGenerateCode('edit'));
   DOM.copyGeneratedCodeBtn.addEventListener('click', copyGeneratedCode);
+  DOM.clearGuestAccessBtn.addEventListener('click', clearRememberedGuestAccess);
 
   DOM.newProblemBtn.addEventListener('click', () => beginPlacement('create'));
   DOM.editProblemBtn.addEventListener('click', () => beginPlacement('edit'));
   DOM.openProblemDetailsBtn.addEventListener('click', openProblemDetails);
-  DOM.deleteProblemBtn.addEventListener('click', handleDeleteProblem);
   DOM.deleteProblemSheetBtn.addEventListener('click', handleDeleteProblem);
   DOM.cancelDrawBtn.addEventListener('click', cancelPlacement);
   DOM.saveProblemBtn.addEventListener('click', handleSaveProblem);
   DOM.saveProblemDetailsBtn.addEventListener('click', handleSaveProblem);
-  DOM.holdBtns.forEach((button) => {
-    button.addEventListener('click', hidePlacementHint);
-  });
-  DOM.canvas.addEventListener('click', () => {
-    if (state.isPlacementMode) {
-      hidePlacementHint();
-    }
-  });
+  DOM.prevProblemBtn.addEventListener('click', () => navigateProblems(-1));
+  DOM.nextProblemBtn.addEventListener('click', () => navigateProblems(1));
+
+  bindSwipeNavigation(DOM.boardMedia);
+  bindSwipeNavigation(DOM.problemInfoCard);
 
   window.addEventListener('resize', () => {
     editor.syncCanvasToImage();
@@ -1176,6 +1216,7 @@ function bindEvents() {
 
 async function init() {
   bindEvents();
+
   if ('ResizeObserver' in window) {
     boardResizeObserver = new ResizeObserver(() => {
       editor.syncCanvasToImage();
@@ -1183,9 +1224,14 @@ async function init() {
     boardResizeObserver.observe(DOM.boardFrame);
     boardResizeObserver.observe(DOM.currentBoard);
   }
+
   renderBoardLists();
+  renderProblemBrowser();
+  renderProblemDetails();
   renderShell();
+
   await restoreBoardOnBoot();
+
   onAuthStateChanged(auth, (user) => {
     handleAuthStateChange(user).catch((error) => {
       console.error(error);

@@ -2,6 +2,18 @@
 
 ## 2026-04-08
 
+### Board-First Overhaul v1
+- Refined the visual system toward a warmer graphite dark mode with lighter chrome, calmer spacing, and less chunky card treatment.
+- Reworked the selected-problem surface into a slimmer bottom rail with next/previous controls plus swipe navigation on the board and problem rail.
+- Simplified edit mode so the header focuses on exit plus mode state, while hold tools and save now live in a bottom dock near the board.
+- Replaced the old bottom-sheet problem details flow with a centered details modal for name, grade, and notes.
+- Fixed create mode so it no longer leaves the previously selected problem card visible behind a new draft.
+- Added draft dirty-state handling so leaving create/edit mode now confirms before discarding unsaved changes.
+- Hardened guest access restore so remembered guest access is explicit device state rather than implicit last-board persistence.
+- Added an in-menu control to remove remembered guest access from the current device.
+- Upgraded sharing code generation to unique 8-character codes with collision retries before write.
+- Split problem filtering/navigation, access/session helpers, and draft-state helpers out of the main app controller.
+
 ### Shared Access And Auth Cleanup
 - Removed the legacy auth-time permission migration path that was still causing permission-denied errors during login.
 - Simplified shared board loading so it now relies on the canonical `users/{uid}/sharedBoards/{boardId}` path.

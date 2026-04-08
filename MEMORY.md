@@ -56,18 +56,15 @@
 - A previous legacy compatibility path that queried permissions during auth caused permission-denied noise and has now been removed from the client auth flow.
 
 ## Known Next UI Opportunities
-- Make the menu feel more Apple-like and less like a generic dark web sheet:
-  - fewer boxed sections
-  - cleaner row hierarchy
-  - less copy
-- Keep simplifying the non-edit header so it feels lighter and more premium.
-- Compress the selected problem strip further so it reads as lightweight context.
-- Refine spacing and border treatment across the whole app to remove the remaining “retro / chunky” feel.
-- Make the shared boards / board access areas easier to navigate without leaving the menu entirely.
+- Keep refining the board-first graphite theme without reintroducing chunky cards or extra chrome.
+- Continue tightening the menu hierarchy so board switching, sharing, and account controls feel fast to scan.
+- Consider richer problem browsing states later:
+  - grade pills
+  - completion/history state
+  - lightweight sorting
+- When workout logging arrives, keep it out of the primary board view and behind the menu or a secondary sheet.
 
 ## Known Next Functional Checks
-- Confirm there are no remaining Firestore permission errors on fresh sign-in for shared users.
-- Confirm shared boards appear correctly for users who already have:
-  - `/users/{uid}/sharedBoards/{boardId}`
-  - matching `/boards/{boardId}/permissions/{uid}`
-- If permission errors still appear, inspect only the current canonical shared-board read path before adding any more compatibility logic.
+- Confirm remembered guest access behaves correctly across reload, sign-in promotion, and explicit removal from the device.
+- Confirm swipe navigation always follows the currently filtered problem set.
+- Confirm dirty-draft discard prompts appear only when create/edit state has actually changed.

@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>WallyWall</title>
+  <meta name="theme-color" content="#111416" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
   <script type="module" src="./app.js" defer></script>
 </head>
@@ -22,18 +23,13 @@
       <button id="openProblemsBtn" class="btn topbar-btn hidden">Problems</button>
       <button id="newProblemBtn" class="icon-btn hidden" aria-label="New problem">＋</button>
       <button id="editProblemBtn" class="icon-btn hidden" aria-label="Edit problem">✎</button>
-      <button id="deleteProblemBtn" class="icon-btn hidden" aria-label="Delete problem">🗑</button>
     </div>
     <div id="editTopbar" class="edit-topbar hidden">
-      <span id="editModeBanner" class="edit-mode-banner">Edit mode</span>
-      <button id="cancelDrawBtn" class="btn edit-topbar-btn" type="button">Discard</button>
-      <div id="editControls" class="edit-toolrail">
-        <button data-type="start" class="hold-btn active">Start</button>
-        <button data-type="hold" class="hold-btn">Hold</button>
-        <button data-type="finish" class="hold-btn">Finish</button>
-        <button data-type="delete" class="hold-btn danger-text">Erase</button>
+      <button id="cancelDrawBtn" class="icon-btn edit-exit-btn" type="button" aria-label="Exit editing">✕</button>
+      <div class="edit-topbar-copy">
+        <p class="eyebrow">Mode</p>
+        <span id="editModeBanner" class="edit-mode-banner">Editing</span>
       </div>
-      <button id="saveProblemBtn" class="btn primary edit-topbar-btn" type="button">Save</button>
     </div>
   </header>
 
@@ -58,9 +54,20 @@
         </div>
       </div>
 
-      <div id="placementMetaStrip" class="placement-meta-strip hidden">
-        <span id="placementModePill" class="pill accent">Edit mode</span>
-        <button id="openProblemDetailsBtn" class="btn topbar-btn" type="button">Edit details</button>
+      <div id="placementMetaStrip" class="placement-dock hidden">
+        <div class="placement-dock-header">
+          <span id="placementModePill" class="pill accent">New draft</span>
+          <button id="openProblemDetailsBtn" class="btn placement-details-btn" type="button">Details</button>
+        </div>
+        <div class="placement-dock-tools">
+          <div id="editControls" class="edit-toolrail">
+            <button data-type="start" class="hold-btn active" type="button">Start</button>
+            <button data-type="hold" class="hold-btn" type="button">Hold</button>
+            <button data-type="finish" class="hold-btn" type="button">Finish</button>
+            <button data-type="delete" class="hold-btn danger-text" type="button">Erase</button>
+          </div>
+          <button id="saveProblemBtn" class="btn primary placement-save-btn" type="button">Save problem</button>
+        </div>
       </div>
 
       <section id="problemEmptyState" class="card problem-empty hidden">
@@ -68,12 +75,17 @@
         <p>Add the first problem if you have edit access, or switch to another board from the boards sheet.</p>
       </section>
 
-      <section id="problemInfoCard" class="problem-info card hidden">
-        <div class="problem-info-header">
-          <span id="problemGradeDisplay" class="pill accent">Ungraded</span>
-          <span id="problemInfoName" class="problem-info-name"></span>
+      <section id="problemInfoCard" class="problem-info hidden">
+        <button id="prevProblemBtn" class="nav-chip" type="button" aria-label="Previous problem">‹</button>
+        <div class="problem-info-main">
+          <div class="problem-info-header">
+            <span id="problemGradeDisplay" class="pill accent">Ungraded</span>
+            <span id="problemPositionText" class="problem-position"></span>
+          </div>
+          <p id="problemInfoName" class="problem-info-name"></p>
+          <p id="problemDescriptionText">Select a problem to see the details.</p>
         </div>
-        <p id="problemDescriptionText">Select a problem to see the details.</p>
+        <button id="nextProblemBtn" class="nav-chip" type="button" aria-label="Next problem">›</button>
       </section>
     </section>
   </main>
@@ -181,6 +193,12 @@
           <h3>Your access</h3>
           <p id="memberAccessText" class="sheet-copy"></p>
         </section>
+
+        <section id="guestAccessSection" class="sheet-section hidden">
+          <h3>Remembered on this device</h3>
+          <p id="guestAccessText" class="sheet-copy"></p>
+          <button id="clearGuestAccessBtn" class="btn" type="button">Remove device access</button>
+        </section>
       </details>
     </div>
   </section>
@@ -222,7 +240,7 @@
       <form id="joinCodeForm" class="sheet-form">
         <label class="field">
           <span>Access code</span>
-          <input id="joinCodeInput" type="text" maxlength="12" placeholder="ABC123" autocapitalize="characters" required />
+          <input id="joinCodeInput" type="text" maxlength="12" placeholder="AB12CD34" autocapitalize="characters" spellcheck="false" required />
         </label>
         <p id="joinCodeStatus" class="sheet-copy">If you sign in first, the board will be saved to your account automatically.</p>
         <button id="joinCodeSubmitBtn" class="btn primary" type="submit">Join board</button>
@@ -266,53 +284,53 @@
     </div>
   </section>
 
-  <section id="problemSheet" class="sheet hidden" aria-labelledby="problemSheetTitle" aria-modal="true" role="dialog">
+  <section id="problemSheet" class="sheet modal-sheet hidden" aria-labelledby="problemSheetTitle" aria-modal="true" role="dialog">
     <div class="sheet-header">
       <div>
-        <p class="eyebrow">Problem</p>
+        <p id="problemSheetEyebrow" class="eyebrow">Problem</p>
         <h2 id="problemSheetTitle">Problem details</h2>
       </div>
       <button id="closeProblemSheetBtn" class="icon-btn" aria-label="Close problem details sheet">✕</button>
     </div>
-    <div class="sheet-body">
-      <details id="problemMetaPanel" class="problem-meta-panel" open>
-        <summary>Problem details</summary>
-        <div class="problem-meta-fields">
-          <label class="field">
-            <span>Problem name</span>
-            <input id="problemName" placeholder="Evening warm-up" />
-          </label>
-          <label class="field">
-            <span>Description</span>
-            <textarea id="problemDesc" placeholder="Optional notes, beta, setters, or feet rules"></textarea>
-          </label>
-          <label class="field">
-            <span>Grade</span>
-            <select id="problemGrade">
-              <option value="">Select grade</option>
-              <option>V0</option>
-              <option>V1</option>
-              <option>V2</option>
-              <option>V3</option>
-              <option>V4</option>
-              <option>V5</option>
-              <option>V6</option>
-              <option>V7</option>
-              <option>V8</option>
-              <option>V9</option>
-              <option>V10</option>
-              <option>V11</option>
-              <option>V12</option>
-              <option>V13</option>
-              <option>V14</option>
-              <option>V14+</option>
-            </select>
-          </label>
-        </div>
-      </details>
-      <div class="button-row wrap end">
-        <button id="saveProblemDetailsBtn" class="btn primary" type="button">Save</button>
-        <button id="cancelSheetBtn" class="btn" type="button">Close details</button>
+    <div class="sheet-body problem-sheet-body">
+      <div class="problem-sheet-copy">
+        <p>Keep hold placement on the board and open this card only for the route name, grade, and notes.</p>
+      </div>
+      <div class="problem-meta-fields">
+        <label class="field">
+          <span>Problem name</span>
+          <input id="problemName" placeholder="Evening warm-up" />
+        </label>
+        <label class="field">
+          <span>Description</span>
+          <textarea id="problemDesc" placeholder="Optional notes, beta, setters, or feet rules"></textarea>
+        </label>
+        <label class="field">
+          <span>Grade</span>
+          <select id="problemGrade">
+            <option value="">Select grade</option>
+            <option>V0</option>
+            <option>V1</option>
+            <option>V2</option>
+            <option>V3</option>
+            <option>V4</option>
+            <option>V5</option>
+            <option>V6</option>
+            <option>V7</option>
+            <option>V8</option>
+            <option>V9</option>
+            <option>V10</option>
+            <option>V11</option>
+            <option>V12</option>
+            <option>V13</option>
+            <option>V14</option>
+            <option>V14+</option>
+          </select>
+        </label>
+      </div>
+      <div class="button-row wrap end problem-sheet-actions">
+        <button id="cancelSheetBtn" class="btn" type="button">Keep placing</button>
+        <button id="saveProblemDetailsBtn" class="btn primary" type="button">Save problem</button>
       </div>
       <div id="deleteProblemRow" class="delete-problem-row hidden">
         <button id="deleteProblemSheetBtn" class="btn danger" type="button">Delete problem</button>
