@@ -54,6 +54,8 @@
   - `/users/{uid}/sharedBoards/{boardId}`
 - Board permissions still exist at:
   - `/boards/{boardId}/permissions/{userUid}`
+- Storage writes for board layout images should stay scoped to `/layouts/{uid}/...` for the signed-in owner only.
+- Board creation rules should always validate `ownerUid == request.auth.uid`.
 - A previous legacy compatibility path that queried permissions during auth caused permission-denied noise and has now been removed from the client auth flow.
 
 ## Known Next UI Opportunities
