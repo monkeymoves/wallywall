@@ -7,6 +7,8 @@ WallyWall is a board-first climbing wall app for private home boards. Owners can
 - Full-screen board-first mobile UI
 - Problem browsing with grade filter, bottom context rail, and swipe/arrow navigation
 - Placement-first problem creation and editing
+- Private training log for signed-in users on saved boards
+- CSV and JSON export for board-scoped training history
 - Owner, signed-in member, and guest-by-code access model
 - Remembered guest access on-device, with explicit removal from the menu
 - Firebase Auth, Firestore, Storage, and Hosting
@@ -30,6 +32,7 @@ WallyWall is a board-first climbing wall app for private home boards. Owners can
 - Join with a code while signed in, or sign in after a guest visit
 - Keep shared board access in the account
 - Reopen the board from the shared boards list without relying on guest restore
+- Log attempts privately against the current saved board
 
 ## Frontend Structure
 
@@ -39,6 +42,7 @@ WallyWall is a board-first climbing wall app for private home boards. Owners can
 - [public/accessHelpers.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/accessHelpers.js): access/session helpers
 - [public/problemBrowser.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemBrowser.js): grade sorting and selected-problem navigation
 - [public/problemDraft.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemDraft.js): draft baselines and dirty-state handling
+- [public/trainingLog.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/trainingLog.js): month/day training-log date helpers and formatting
 - [public/style.css](/Users/lukemaggs/Desktop/Desktop/wallywall/public/style.css): graphite dark visual system and board-first UI styling
 
 ## Local Development
@@ -92,4 +96,4 @@ Note:
 
 - There are still no automated tests; regression is manual.
 - Firebase Hosting is currently configured to serve `public/` directly.
-- Workout/session logging is intentionally deferred until the board-first flows are stable.
+- Training log v1 is board-scoped and private; CSV/JSON export is available and charts are still deferred.

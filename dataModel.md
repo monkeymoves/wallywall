@@ -98,6 +98,58 @@ Notes:
 - Access codes are top-level documents keyed by the code string itself.
 - Current client behavior generates unique 8-character uppercase codes with collision retries before write.
 
+## `users/{uid}/trainingLogs`
+Path: `/users/{uid}/trainingLogs/{boardId}`
+
+```json
+{
+  "boardId": "boardId",
+  "boardName": "The Church",
+  "lastLoggedAt": "Timestamp"
+}
+```
+
+Notes:
+- This is the private board-scoped logbook root for one signed-in user.
+- Training logs are not shared with board owners or other shared users.
+
+## `users/{uid}/trainingLogs/{boardId}/sessions`
+Path: `/users/{uid}/trainingLogs/{boardId}/sessions/{dateKey}`
+
+```json
+{
+  "boardId": "boardId",
+  "boardName": "The Church",
+  "dateKey": "2026-04-08",
+  "entryCount": 4,
+  "completedCount": 3,
+  "notCompletedCount": 1,
+  "updatedAt": "Timestamp"
+}
+```
+
+Notes:
+- `dateKey` is stored as `YYYY-MM-DD` in local calendar terms.
+- Session documents are monthly-calendar/day-summary records for the current board.
+
+## `users/{uid}/trainingLogs/{boardId}/sessions/{dateKey}/entries`
+Path: `/users/{uid}/trainingLogs/{boardId}/sessions/{dateKey}/entries/{entryId}`
+
+```json
+{
+  "problemId": "problemId",
+  "problemName": "warmup right",
+  "problemGrade": "V2",
+  "completed": true,
+  "note": "Felt smooth after warming up shoulders.",
+  "loggedAt": "Timestamp"
+}
+```
+
+Notes:
+- Each save creates a new attempt record, even for the same problem on the same day.
+- `problemName` and `problemGrade` are denormalized snapshots so history survives later problem edits or deletes.
+
 ## Local Device State
 
 The app also stores lightweight local state in `localStorage`:

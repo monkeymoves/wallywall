@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -18,6 +19,14 @@ import {
 
 export function problemsCol(boardId) {
   return collection(db, `boards/${boardId}/problems`);
+}
+
+export function trainingSessionsCol(userId, boardId) {
+  return collection(db, `users/${userId}/trainingLogs/${boardId}/sessions`);
+}
+
+export function trainingEntriesCol(userId, boardId, dateKey) {
+  return collection(db, `users/${userId}/trainingLogs/${boardId}/sessions/${dateKey}/entries`);
 }
 
 export function createBoard({ name, imageUrl, ownerUid }) {
@@ -150,4 +159,67 @@ export async function getUserPermissionForBoard(boardId, userId) {
   const permissionRef = doc(db, `boards/${boardId}/permissions/${userId}`);
   const permissionSnap = await getDoc(permissionRef);
   return permissionSnap.exists() ? permissionSnap.data().level : null;
+}
+
+export async function getTrainingSessionsForMonth(userId, boardId, startKey, endKey) {
+  const sessionsQuery = query(
+    trainingSessionsCol(userId, boardId),
+    where('dateKey', '>=', startKey),
+    where('dateKey', '<=', endKey),
+    orderBy('dateKey', 'asc')
+  );
+
+  const snapshot = await getDocs(sessionsQuery);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+export async function getTrainingSessionsForBoard(userId, boardId) {
+  const sessionsQuery = query(
+    trainingSessionsCol(userId, boardId),
+    orderBy('dateKey', 'asc')
+  );
+
+  const snapshot = await getDocs(sessionsQuery);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+export async function getTrainingEntriesForDate(userId, boardId, dateKey) {
+  const entriesQuery = query(
+    trainingEntriesCol(userId, boardId, dateKey),
+    orderBy('loggedAt', 'desc')
+  );
+
+  const snapshot = await getDocs(entriesQuery);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+export function addTrainingEntry(userId, boardId, boardName, dateKey, entry) {
+  const trainingLogRef = doc(db, `users/${userId}/trainingLogs/${boardId}`);
+  const sessionRef = doc(db, `users/${userId}/trainingLogs/${boardId}/sessions/${dateKey}`);
+  const entryRef = doc(trainingEntriesCol(userId, boardId, dateKey));
+  const batch = writeBatch(db);
+
+  batch.set(trainingLogRef, {
+    boardId,
+    boardName,
+    lastLoggedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(sessionRef, {
+    boardId,
+    boardName,
+    dateKey,
+    entryCount: increment(1),
+    completedCount: increment(entry.completed ? 1 : 0),
+    notCompletedCount: increment(entry.completed ? 0 : 1),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(entryRef, {
+    ...entry,
+    note: entry.note || '',
+    loggedAt: serverTimestamp(),
+  });
+
+  return batch.commit();
 }

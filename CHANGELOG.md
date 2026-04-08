@@ -2,6 +2,14 @@
 
 ## 2026-04-08
 
+### Training Log v1
+- Added a private board-scoped training log for signed-in users on owned or saved shared boards.
+- Added a top-bar `Log` action for the selected problem and a menu entry to open the full training log.
+- Added a compact quick-log sheet for saving completed / not completed attempts with optional short notes.
+- Added a calendar-style training log sheet with month navigation, day summaries, and per-attempt history.
+- Stored training logs under each user rather than under boards so session history stays private.
+- Added Firestore rules for the new `users/{uid}/trainingLogs/...` subtree.
+
 ### Board-First Overhaul v1
 - Refined the visual system toward a warmer graphite dark mode with lighter chrome, calmer spacing, and less chunky card treatment.
 - Reworked the selected-problem surface into a slimmer bottom rail with next/previous controls plus swipe navigation on the board and problem rail.

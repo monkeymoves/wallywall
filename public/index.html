@@ -34,6 +34,7 @@
       <p id="currentProblemSummary" class="topbar-subcopy hidden"></p>
     </div>
     <div class="topbar-actions">
+      <button id="openQuickLogBtn" class="btn topbar-btn log-btn hidden" type="button" disabled>Log</button>
       <button id="openProblemsBtn" class="btn topbar-btn hidden">Problems</button>
       <button id="newProblemBtn" class="icon-btn hidden" aria-label="New problem"><span class="glyph-plus" aria-hidden="true"></span></button>
       <button id="editProblemBtn" class="icon-btn hidden" aria-label="Edit problem"><span class="glyph-pencil" aria-hidden="true"></span></button>
@@ -167,6 +168,10 @@
             <p class="section-caption">Signed in as</p>
             <strong id="signedInEmail"></strong>
           </div>
+          <button id="openTrainingLogMenuBtn" class="menu-row hidden" type="button">
+            <strong>Training log</strong>
+            <span>Review session history for this board.</span>
+          </button>
           <button id="signOutBtn" class="btn" type="button">Sign out</button>
         </div>
       </details>
@@ -361,6 +366,90 @@
       <div id="deleteProblemRow" class="delete-problem-row hidden">
         <button id="deleteProblemSheetBtn" class="btn danger" type="button">Delete problem</button>
       </div>
+    </div>
+  </section>
+
+  <section id="quickLogSheet" class="sheet modal-sheet hidden" aria-labelledby="quickLogSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Training</p>
+        <h2 id="quickLogSheetTitle">Log an attempt</h2>
+      </div>
+      <button id="closeQuickLogSheetBtn" class="icon-btn" aria-label="Close quick log sheet">✕</button>
+    </div>
+    <div class="sheet-body quick-log-body">
+      <div class="quick-log-problem card">
+        <div class="problem-info-header">
+          <span id="quickLogProblemGrade" class="pill accent">V0</span>
+          <span class="section-caption">Saved to today</span>
+        </div>
+        <p id="quickLogProblemName" class="problem-info-name">Select a problem</p>
+        <p id="quickLogProblemDescription" class="sheet-copy">Choose whether the climb went or not, then add any quick notes.</p>
+      </div>
+
+      <div class="quick-log-result-group">
+        <button id="quickLogCompleteBtn" class="result-chip is-active" type="button">Completed</button>
+        <button id="quickLogFailBtn" class="result-chip" type="button">Not completed</button>
+      </div>
+
+      <label class="field">
+        <span>Notes</span>
+        <textarea id="quickLogNote" maxlength="240" placeholder="Optional short notes about beta, feel, or why it missed."></textarea>
+      </label>
+
+      <div class="button-row wrap end">
+        <button id="cancelQuickLogBtn" class="btn" type="button">Cancel</button>
+        <button id="saveQuickLogBtn" class="btn primary" type="button">Save log</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="trainingLogSheet" class="sheet hidden" aria-labelledby="trainingLogSheetTitle" aria-modal="true" role="dialog">
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow">Training</p>
+        <h2 id="trainingLogSheetTitle">Training log</h2>
+      </div>
+      <button id="closeTrainingLogSheetBtn" class="icon-btn" aria-label="Close training log sheet">✕</button>
+    </div>
+    <div class="sheet-body training-log-body">
+      <div class="training-log-toolbar">
+        <div>
+          <p id="trainingLogBoardContext" class="sheet-copy">Open a saved board to see its history.</p>
+        </div>
+        <div class="month-nav">
+          <button id="trainingPrevMonthBtn" class="nav-chip month-nav-btn" type="button" aria-label="Previous month">‹</button>
+          <strong id="trainingLogMonthLabel">This month</strong>
+          <button id="trainingNextMonthBtn" class="nav-chip month-nav-btn" type="button" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div class="training-log-actions">
+        <button id="exportTrainingCsvBtn" class="btn" type="button">Export CSV</button>
+        <button id="exportTrainingJsonBtn" class="btn" type="button">Export JSON</button>
+      </div>
+
+      <div class="training-calendar">
+        <div class="calendar-weekdays">
+          <span>Mon</span>
+          <span>Tue</span>
+          <span>Wed</span>
+          <span>Thu</span>
+          <span>Fri</span>
+          <span>Sat</span>
+          <span>Sun</span>
+        </div>
+        <div id="trainingCalendarGrid" class="calendar-grid"></div>
+      </div>
+
+      <section class="training-day-panel">
+        <div class="section-heading-row">
+          <div>
+            <h3 id="trainingDayTitle">Today</h3>
+            <p id="trainingDaySummary" class="section-caption">No attempts logged yet.</p>
+          </div>
+        </div>
+        <div id="trainingEntriesList" class="training-entry-list"></div>
+      </section>
     </div>
   </section>
 

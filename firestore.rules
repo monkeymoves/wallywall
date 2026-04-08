@@ -40,6 +40,18 @@ service cloud.firestore {
         // Only the owner can delete (revoke).
         allow delete: if get(/databases/$(database)/documents/boards/$(boardId)).data.ownerUid == request.auth.uid;
       }
+
+      match /trainingLogs/{boardId} {
+        allow read, write: if request.auth.uid == userId;
+
+        match /sessions/{dateKey} {
+          allow read, write: if request.auth.uid == userId;
+
+          match /entries/{entryId} {
+            allow read, write: if request.auth.uid == userId;
+          }
+        }
+      }
     }
 
     match /boards/{boardId} {

@@ -25,6 +25,7 @@
 - Top bar in read mode should stay minimal:
   - hamburger menu
   - board name
+  - Log (signed-in users on saved boards only)
   - Problems
   - create problem
 - Problem name/grade should not compete with the board title in the header.
@@ -63,6 +64,10 @@
   - completion/history state
   - lightweight sorting
 - When workout logging arrives, keep it out of the primary board view and behind the menu or a secondary sheet.
+- Training log v1 now follows that rule:
+  - top-bar `Log` opens a tiny attempt card for the selected problem
+  - full history lives in a secondary calendar sheet from the menu
+  - logs are private per user and scoped to the current board
 
 ## Known Next Functional Checks
 - Confirm remembered guest access behaves correctly across reload, sign-in promotion, and explicit removal from the device.
