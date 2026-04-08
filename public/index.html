@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>WallyWall</title>
-  <meta name="theme-color" content="#111416" />
+  <meta name="theme-color" content="#252c33" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -12,8 +12,22 @@
   <script type="module" src="./app.js" defer></script>
 </head>
 <body class="dark-theme">
+  <div id="launchScreen" class="launch-screen" aria-live="polite">
+    <div class="launch-triangle" aria-hidden="true">
+      <span class="launch-triangle-edge edge-a"></span>
+      <span class="launch-triangle-edge edge-b"></span>
+      <span class="launch-triangle-edge edge-c"></span>
+    </div>
+    <p class="launch-wordmark">WallyWall</p>
+  </div>
   <header class="topbar">
-    <button id="openBoardsBtn" class="btn topbar-btn menu-btn" aria-label="Open menu">☰</button>
+    <button id="openBoardsBtn" class="btn topbar-btn menu-btn" aria-label="Open menu">
+      <span class="menu-glyph" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    </button>
     <div class="topbar-copy">
       <p class="eyebrow">WallyWall</p>
       <h1 id="currentBoardName">Choose a board</h1>
@@ -21,11 +35,11 @@
     </div>
     <div class="topbar-actions">
       <button id="openProblemsBtn" class="btn topbar-btn hidden">Problems</button>
-      <button id="newProblemBtn" class="icon-btn hidden" aria-label="New problem">＋</button>
-      <button id="editProblemBtn" class="icon-btn hidden" aria-label="Edit problem">✎</button>
+      <button id="newProblemBtn" class="icon-btn hidden" aria-label="New problem"><span class="glyph-plus" aria-hidden="true"></span></button>
+      <button id="editProblemBtn" class="icon-btn hidden" aria-label="Edit problem"><span class="glyph-pencil" aria-hidden="true"></span></button>
     </div>
     <div id="editTopbar" class="edit-topbar hidden">
-      <button id="cancelDrawBtn" class="icon-btn edit-exit-btn" type="button" aria-label="Exit editing">✕</button>
+      <button id="cancelDrawBtn" class="icon-btn edit-exit-btn" type="button" aria-label="Exit editing"><span class="glyph-close" aria-hidden="true"></span></button>
       <div class="edit-topbar-copy">
         <p class="eyebrow">Mode</p>
         <span id="editModeBanner" class="edit-mode-banner">Editing</span>
@@ -35,7 +49,12 @@
 
   <main class="app-main">
     <section id="welcomeMessage" class="empty-state card">
-      <span class="empty-icon">🧗</span>
+      <div class="empty-mark" aria-hidden="true">
+        <span class="empty-mark-line"></span>
+        <span class="empty-mark-line"></span>
+        <span class="empty-mark-line"></span>
+      </div>
+      <p class="eyebrow empty-eyebrow">Quiet board beta</p>
       <h2>Your board comes first</h2>
       <p>Join a board with a code, create your own board, or sign in to keep your boards and shared access in sync.</p>
       <div class="empty-actions">
@@ -48,9 +67,16 @@
 
     <section id="boardScene" class="board-scene hidden">
       <div class="board-frame">
-        <div class="board-media">
-          <img id="currentBoard" alt="Climbing board" />
-          <canvas id="overlayCanvas"></canvas>
+        <div id="boardViewport" class="board-viewport">
+          <div class="board-media">
+            <img id="currentBoard" alt="Climbing board" />
+            <canvas id="overlayCanvas"></canvas>
+          </div>
+        </div>
+        <div id="boardZoomControls" class="board-zoom-controls hidden">
+          <button id="zoomOutBtn" class="nav-chip zoom-chip" type="button" aria-label="Zoom out">−</button>
+          <button id="zoomResetBtn" class="zoom-readout" type="button" aria-label="Reset zoom">100%</button>
+          <button id="zoomInBtn" class="nav-chip zoom-chip" type="button" aria-label="Zoom in">+</button>
         </div>
       </div>
 

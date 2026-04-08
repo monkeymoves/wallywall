@@ -85,12 +85,24 @@ const state = {
   boardLoadToken: 0,
   draftBaseline: emptyProblemDraft(),
   prePlacementProblemId: '',
+  boardZoom: 1,
+  isBooting: true,
+  initialAuthResolved: false,
+  ownedBoardsReady: false,
+  sharedBoardsReady: false,
+  boardVisualReady: false,
 };
 
 let unsubscribeOwnedBoards = null;
 let unsubscribeSharedBoards = null;
 let unsubscribeSharedUsers = null;
 let boardResizeObserver = null;
+let pinchState = null;
+let panState = null;
+
+const MIN_BOARD_ZOOM = 1;
+const MAX_BOARD_ZOOM = 2.6;
+const BOARD_ZOOM_STEP = 0.2;
 
 function slugify(value) {
   return value
@@ -102,6 +114,26 @@ function slugify(value) {
 
 function getSelectedProblem() {
   return getProblemById(state.currentProblems, state.selectedProblemId);
+}
+
+function shouldShowSplash() {
+  if (!state.isBooting) return false;
+  if (!state.initialAuthResolved) return true;
+  if (state.currentBoard) {
+    return !state.boardVisualReady;
+  }
+
+  if (state.currentUser) {
+    return !state.ownedBoardsReady || !state.sharedBoardsReady;
+  }
+
+  return false;
+}
+
+function maybeFinishBoot() {
+  if (!state.isBooting || shouldShowSplash()) return;
+  state.isBooting = false;
+  renderShell();
 }
 
 function getGuestAccessForCurrentBoard() {
@@ -153,12 +185,104 @@ function clearCurrentBoardState() {
   state.problemSheetMode = 'create';
   state.draftBaseline = emptyProblemDraft();
   state.prePlacementProblemId = '';
+  state.boardZoom = 1;
+  state.boardVisualReady = false;
   editor.setActive(false);
   editor.clear();
+  syncBoardViewport();
   clearSelectedBoardId();
   stopSharedUsersListener();
   renderProblemBrowser();
   renderShell();
+}
+
+function updateBoardZoomUi() {
+  const percentage = Math.round(state.boardZoom * 100);
+  DOM.zoomResetBtn.textContent = `${percentage}%`;
+  DOM.zoomOutBtn.disabled = state.boardZoom <= MIN_BOARD_ZOOM;
+  DOM.zoomInBtn.disabled = state.boardZoom >= MAX_BOARD_ZOOM;
+}
+
+function getTouchDistance(touchA, touchB) {
+  return Math.hypot(touchA.clientX - touchB.clientX, touchA.clientY - touchB.clientY);
+}
+
+function getTouchMidpoint(touchA, touchB) {
+  return {
+    x: (touchA.clientX + touchB.clientX) / 2,
+    y: (touchA.clientY + touchB.clientY) / 2,
+  };
+}
+
+function syncBoardViewport() {
+  if (!DOM.boardViewport || !DOM.currentBoard || !DOM.boardMedia) return;
+  if (!DOM.currentBoard.naturalWidth || !DOM.currentBoard.naturalHeight) {
+    updateBoardZoomUi();
+    return;
+  }
+
+  const viewport = DOM.boardViewport;
+  const viewportWidth = Math.max(0, viewport.clientWidth);
+  const viewportHeight = Math.max(0, viewport.clientHeight);
+  if (!viewportWidth || !viewportHeight) {
+    updateBoardZoomUi();
+    return;
+  }
+
+  const widthRatio = viewportWidth / DOM.currentBoard.naturalWidth;
+  const heightRatio = viewportHeight / DOM.currentBoard.naturalHeight;
+  const fitRatio = Math.min(widthRatio, heightRatio);
+  const baseWidth = DOM.currentBoard.naturalWidth * fitRatio;
+  const baseHeight = DOM.currentBoard.naturalHeight * fitRatio;
+  const scaledWidth = baseWidth * state.boardZoom;
+  const scaledHeight = baseHeight * state.boardZoom;
+
+  DOM.boardMedia.style.width = `${scaledWidth}px`;
+  DOM.boardMedia.style.height = `${scaledHeight}px`;
+  DOM.currentBoard.style.width = `${scaledWidth}px`;
+  DOM.currentBoard.style.height = `${scaledHeight}px`;
+  updateBoardZoomUi();
+  editor.syncCanvasToImage();
+}
+
+function setBoardZoom(nextZoom, { anchorClientX = null, anchorClientY = null } = {}) {
+  if (!DOM.boardViewport || !DOM.boardMedia) return;
+
+  const previousZoom = state.boardZoom;
+  const clamped = Math.max(MIN_BOARD_ZOOM, Math.min(MAX_BOARD_ZOOM, Number(nextZoom.toFixed(2))));
+  if (clamped === previousZoom) {
+    updateBoardZoomUi();
+    return;
+  }
+
+  const viewport = DOM.boardViewport;
+  const rect = viewport.getBoundingClientRect();
+  const anchorX = anchorClientX ?? (rect.left + rect.width / 2);
+  const anchorY = anchorClientY ?? (rect.top + rect.height / 2);
+  const relativeX = anchorX - rect.left;
+  const relativeY = anchorY - rect.top;
+  const contentX = (viewport.scrollLeft + relativeX) / previousZoom;
+  const contentY = (viewport.scrollTop + relativeY) / previousZoom;
+
+  state.boardZoom = clamped;
+  syncBoardViewport();
+
+  window.requestAnimationFrame(() => {
+    viewport.scrollLeft = Math.max(0, contentX * clamped - relativeX);
+    viewport.scrollTop = Math.max(0, contentY * clamped - relativeY);
+  });
+}
+
+function resetBoardZoom() {
+  state.boardZoom = MIN_BOARD_ZOOM;
+  syncBoardViewport();
+
+  if (DOM.boardViewport) {
+    DOM.boardViewport.scrollLeft = 0;
+    DOM.boardViewport.scrollTop = 0;
+  }
+
+  updateBoardZoomUi();
 }
 
 function syncProblemGradeFilterOptions() {
@@ -450,8 +574,11 @@ function renderShell() {
   document.body.classList.toggle('editing-mode', state.isPlacementMode);
   document.body.classList.toggle('create-mode', state.isPlacementMode && isCreateMode);
   document.body.classList.toggle('update-mode', state.isPlacementMode && !isCreateMode);
+  document.body.classList.toggle('booting', shouldShowSplash());
+  document.body.classList.toggle('app-ready', !shouldShowSplash());
 
   DOM.currentBoardName.textContent = hasBoard ? state.currentBoard.name || 'Untitled board' : 'Choose a board';
+  DOM.launchScreen.classList.toggle('hidden', !shouldShowSplash());
   DOM.welcomeMessage.classList.toggle('hidden', hasBoard);
   DOM.boardScene.classList.toggle('hidden', !hasBoard);
   DOM.openProblemsBtn.classList.toggle('hidden', !hasBoard || state.isPlacementMode);
@@ -460,6 +587,7 @@ function renderShell() {
   DOM.editTopbar.classList.toggle('hidden', !state.isPlacementMode);
   DOM.placementMetaStrip.classList.toggle('hidden', !state.isPlacementMode);
   DOM.editControls.classList.toggle('hidden', !state.isPlacementMode);
+  DOM.boardZoomControls.classList.toggle('hidden', !hasBoard);
 
   DOM.editModeBanner.textContent = isCreateMode ? 'Creating' : 'Editing';
   DOM.placementModePill.textContent = isCreateMode ? 'New draft' : 'Hold layout';
@@ -477,6 +605,8 @@ function renderShell() {
     'hidden',
     !state.isPlacementMode || state.problemSheetMode !== 'edit' || !hasSelectedProblem || !canDeleteCurrentProblem()
   );
+
+  updateBoardZoomUi();
 
   renderAccessSheet();
   renderAccountState();
@@ -544,7 +674,9 @@ async function loadBoard(boardId, boardData, options = {}) {
   state.selectedProblemId = options.preserveSelected ? state.selectedProblemId : '';
   state.latestGeneratedCode = null;
   state.selectedGradeFilter = 'all';
+  state.boardVisualReady = false;
   setSelectedBoardId(boardId);
+  resetBoardZoom();
 
   const boardLoadToken = ++state.boardLoadToken;
   showBoardStatus('Loading board…', 'info');
@@ -552,11 +684,15 @@ async function loadBoard(boardId, boardData, options = {}) {
   DOM.currentBoard.crossOrigin = 'anonymous';
   DOM.currentBoard.onload = () => {
     if (boardLoadToken !== state.boardLoadToken) return;
-    editor.syncCanvasToImage();
+    state.boardVisualReady = true;
+    syncBoardViewport();
+    maybeFinishBoot();
   };
   DOM.currentBoard.onerror = () => {
     if (boardLoadToken !== state.boardLoadToken) return;
+    state.boardVisualReady = true;
     showBoardStatus('The board image could not be loaded.', 'error');
+    maybeFinishBoot();
   };
   DOM.currentBoard.src = boardData.imageUrl;
 
@@ -627,6 +763,7 @@ function subscribeToBoards(userId) {
   unsubscribeOwnedBoards = listenForOwnedBoards(
     userId,
     (snapshot) => {
+      state.ownedBoardsReady = true;
       state.ownedBoards = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         source: 'owned',
@@ -634,11 +771,14 @@ function subscribeToBoards(userId) {
       }));
       renderBoardLists();
       chooseBoardFromCollectionsIfNeeded();
+      maybeFinishBoot();
     },
     (error) => {
+      state.ownedBoardsReady = true;
       console.error(error);
       DOM.boardsListMessage.textContent = 'Could not load your owned boards.';
       showToast(`Owned boards failed to load: ${error.message}`, 'error');
+      maybeFinishBoot();
     }
   );
 
@@ -647,6 +787,7 @@ function subscribeToBoards(userId) {
     state.currentUser?.email || '',
     async (sharedEntries) => {
       try {
+        state.sharedBoardsReady = true;
         const sharedBoards = await Promise.all(sharedEntries.map(async (sharedData) => {
           const boardSnap = await getBoard(sharedData.boardId);
           if (!boardSnap) return null;
@@ -661,16 +802,21 @@ function subscribeToBoards(userId) {
         state.sharedBoards = sharedBoards.filter(Boolean);
         renderBoardLists();
         chooseBoardFromCollectionsIfNeeded();
+        maybeFinishBoot();
       } catch (error) {
+        state.sharedBoardsReady = true;
         console.error(error);
         DOM.boardsListMessage.textContent = 'Could not load shared boards.';
         showToast(`Shared boards failed to load: ${error.message}`, 'error');
+        maybeFinishBoot();
       }
     },
     (error) => {
+      state.sharedBoardsReady = true;
       console.error(error);
       DOM.boardsListMessage.textContent = 'Could not load shared boards.';
       showToast(`Shared boards failed to load: ${error.message}`, 'error');
+      maybeFinishBoot();
     }
   );
 }
@@ -706,6 +852,8 @@ async function promoteGuestAccessIfNeeded(user) {
 
 async function handleAuthStateChange(user) {
   state.currentUser = user;
+  state.ownedBoardsReady = !user;
+  state.sharedBoardsReady = !user;
 
   stopBoardListeners();
   state.ownedBoards = [];
@@ -924,6 +1072,7 @@ function beginPlacement(mode) {
   state.problemSheetMode = mode;
   state.prePlacementProblemId = state.selectedProblemId;
   state.isPlacementMode = true;
+  resetBoardZoom();
 
   if (mode === 'create') {
     state.selectedProblemId = '';
@@ -965,6 +1114,7 @@ function exitPlacement({ restorePreviousSelection = true } = {}) {
   state.isPlacementMode = false;
   closeSheet(DOM.problemSheet);
   editor.setActive(false);
+  resetBoardZoom();
 
   if (restorePreviousSelection && state.problemSheetMode === 'create') {
     state.selectedProblemId = state.prePlacementProblemId;
@@ -1136,7 +1286,7 @@ function bindSwipeNavigation(element) {
   }, { passive: true });
 
   element.addEventListener('touchend', (event) => {
-    if (state.isPlacementMode) return;
+    if (state.isPlacementMode || state.boardZoom > MIN_BOARD_ZOOM) return;
 
     const touch = event.changedTouches[0];
     const deltaX = touch.clientX - startX;
@@ -1147,6 +1297,98 @@ function bindSwipeNavigation(element) {
     }
 
     navigateProblems(deltaX < 0 ? 1 : -1);
+  }, { passive: true });
+}
+
+function bindBoardTouchZoom() {
+  if (!DOM.boardViewport) return;
+
+  DOM.boardViewport.addEventListener('touchstart', (event) => {
+    if (!state.currentBoard) return;
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      const [touchA, touchB] = event.touches;
+      pinchState = {
+        startDistance: getTouchDistance(touchA, touchB),
+        startZoom: state.boardZoom,
+      };
+      panState = null;
+      return;
+    }
+
+    if (event.touches.length === 1 && state.boardZoom > MIN_BOARD_ZOOM) {
+      event.preventDefault();
+      const touch = event.touches[0];
+      panState = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startScrollLeft: DOM.boardViewport.scrollLeft,
+        startScrollTop: DOM.boardViewport.scrollTop,
+      };
+    }
+  }, { passive: false });
+
+  DOM.boardViewport.addEventListener('touchmove', (event) => {
+    if (!state.currentBoard) return;
+    if (event.touches.length === 2 && pinchState) {
+      event.preventDefault();
+      const [touchA, touchB] = event.touches;
+      const distance = getTouchDistance(touchA, touchB);
+      const midpoint = getTouchMidpoint(touchA, touchB);
+      const nextZoom = pinchState.startZoom * (distance / pinchState.startDistance);
+
+      setBoardZoom(nextZoom, {
+        anchorClientX: midpoint.x,
+        anchorClientY: midpoint.y,
+      });
+      return;
+    }
+
+    if (event.touches.length === 1 && state.boardZoom > MIN_BOARD_ZOOM) {
+      if (!panState) {
+        const touch = event.touches[0];
+        panState = {
+          startX: touch.clientX,
+          startY: touch.clientY,
+          startScrollLeft: DOM.boardViewport.scrollLeft,
+          startScrollTop: DOM.boardViewport.scrollTop,
+        };
+      }
+
+      event.preventDefault();
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - panState.startX;
+      const deltaY = touch.clientY - panState.startY;
+      DOM.boardViewport.scrollLeft = panState.startScrollLeft - deltaX;
+      DOM.boardViewport.scrollTop = panState.startScrollTop - deltaY;
+    }
+  }, { passive: false });
+
+  DOM.boardViewport.addEventListener('touchend', (event) => {
+    if (pinchState && state.boardZoom <= 1.04) {
+      resetBoardZoom();
+    }
+
+    if (event.touches.length === 1 && state.boardZoom > MIN_BOARD_ZOOM) {
+      const touch = event.touches[0];
+      panState = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startScrollLeft: DOM.boardViewport.scrollLeft,
+        startScrollTop: DOM.boardViewport.scrollTop,
+      };
+    } else {
+      panState = null;
+    }
+
+    if (event.touches.length < 2) {
+      pinchState = null;
+    }
+  }, { passive: true });
+
+  DOM.boardViewport.addEventListener('touchcancel', () => {
+    pinchState = null;
+    panState = null;
   }, { passive: true });
 }
 
@@ -1205,12 +1447,16 @@ function bindEvents() {
   DOM.saveProblemDetailsBtn.addEventListener('click', handleSaveProblem);
   DOM.prevProblemBtn.addEventListener('click', () => navigateProblems(-1));
   DOM.nextProblemBtn.addEventListener('click', () => navigateProblems(1));
+  DOM.zoomOutBtn.addEventListener('click', () => setBoardZoom(state.boardZoom - BOARD_ZOOM_STEP));
+  DOM.zoomResetBtn.addEventListener('click', resetBoardZoom);
+  DOM.zoomInBtn.addEventListener('click', () => setBoardZoom(state.boardZoom + BOARD_ZOOM_STEP));
 
   bindSwipeNavigation(DOM.boardMedia);
   bindSwipeNavigation(DOM.problemInfoCard);
+  bindBoardTouchZoom();
 
   window.addEventListener('resize', () => {
-    editor.syncCanvasToImage();
+    syncBoardViewport();
   });
 }
 
@@ -1219,15 +1465,16 @@ async function init() {
 
   if ('ResizeObserver' in window) {
     boardResizeObserver = new ResizeObserver(() => {
-      editor.syncCanvasToImage();
+      syncBoardViewport();
     });
     boardResizeObserver.observe(DOM.boardFrame);
-    boardResizeObserver.observe(DOM.currentBoard);
+    boardResizeObserver.observe(DOM.boardViewport);
   }
 
   renderBoardLists();
   renderProblemBrowser();
   renderProblemDetails();
+  updateBoardZoomUi();
   renderShell();
 
   await restoreBoardOnBoot();
@@ -1236,11 +1483,17 @@ async function init() {
     handleAuthStateChange(user).catch((error) => {
       console.error(error);
       showToast(`Auth update failed: ${error.message}`, 'error');
+    }).finally(() => {
+      state.initialAuthResolved = true;
+      maybeFinishBoot();
     });
   });
 }
 
 init().catch((error) => {
   console.error(error);
+  state.initialAuthResolved = true;
+  state.isBooting = false;
+  renderShell();
   showBoardStatus('The app could not be initialised.', 'error');
 });

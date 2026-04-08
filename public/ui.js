@@ -1,6 +1,7 @@
 const by = (id) => document.getElementById(id);
 
 export const DOM = {
+  launchScreen: by('launchScreen'),
   openBoardsBtn: by('openBoardsBtn'),
   openProblemsBtn: by('openProblemsBtn'),
   editModeBanner: by('editModeBanner'),
@@ -12,7 +13,12 @@ export const DOM = {
   boardStatus: by('boardStatus'),
   boardScene: by('boardScene'),
   boardFrame: document.querySelector('.board-frame'),
+  boardViewport: by('boardViewport'),
   boardMedia: document.querySelector('.board-media'),
+  boardZoomControls: by('boardZoomControls'),
+  zoomOutBtn: by('zoomOutBtn'),
+  zoomResetBtn: by('zoomResetBtn'),
+  zoomInBtn: by('zoomInBtn'),
   currentBoard: by('currentBoard'),
   canvas: by('overlayCanvas'),
   editTopbar: by('editTopbar'),
