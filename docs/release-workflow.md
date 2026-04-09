@@ -2,6 +2,30 @@
 
 This is the repo's current safe shipping flow.
 
+## Explain Like I'm 5
+
+- `master` is the real app.
+- A `branch` is your private copy to experiment in safely.
+- A `pull request` is GitHub showing your private copy next to the real app.
+- The `PR preview` is a temporary test website made from your branch.
+- `merge to master` means "yes, add this change to the real app".
+- `live auto deploy` means GitHub updates the real website for you.
+
+In plain English:
+
+1. Make a safe copy of the app.
+2. Change things in that copy.
+3. Ask GitHub to show the change.
+4. Test the temporary preview website.
+5. If it looks good, merge it.
+6. GitHub updates the real website.
+
+Very short version:
+
+```text
+safe copy -> test site -> approve -> real site updates
+```
+
 ## What Is What
 
 - `master` is the production branch.
