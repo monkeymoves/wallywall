@@ -1,7 +1,9 @@
 /**
- * Migration script: Move top-level "problems" into nested "/boards/{boardId}/problems/{problemId}".
- * Usage: Ensure FIRESTORE_EMULATOR_HOST is set (via `firebase emulators:start`), then run:
- *   node scripts/migrate-problems.js
+ * Legacy one-off migration reference for the old top-level `problems`
+ * collection. This is not part of the current runtime or deployment flow.
+ *
+ * Usage: Ensure FIRESTORE_EMULATOR_HOST is set (via `firebase emulators:start`),
+ * then run `node scripts/migrate-problems.js`.
  */
 
 const admin = require('firebase-admin');

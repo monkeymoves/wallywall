@@ -2,6 +2,14 @@
 
 ## 2026-04-09
 
+### Maintainability Refactor
+- Split the large frontend controller into focused modules for board access/loading, problem flow, training log flow, and board viewport interaction.
+- Kept Firebase Hosting serving `public/` directly while aligning the repo docs with the current deploy model.
+- Added Vitest coverage for access helpers, app state persistence, problem draft normalization, and extracted board/export helper logic.
+- Removed stale UI/data-access leftovers and cleaned repo noise that was no longer part of the app runtime.
+
+## 2026-04-09
+
 ### Training Review And Stability
 - Added token-safe board loading so stale async results no longer overwrite the most recently selected board.
 - Added a secondary `Review` tab inside the training log for compact monthly and all-time board summaries.

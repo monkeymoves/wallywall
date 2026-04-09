@@ -7,7 +7,6 @@ export const DOM = {
   openProblemsBtn: by('openProblemsBtn'),
   editModeBanner: by('editModeBanner'),
   currentBoardName: by('currentBoardName'),
-  currentProblemSummary: by('currentProblemSummary'),
   welcomeMessage: by('welcomeMessage'),
   welcomeJoinBtn: by('welcomeJoinBtn'),
   welcomeBoardsBtn: by('welcomeBoardsBtn'),
@@ -192,10 +191,6 @@ export function closeAllSheets() {
   toggleBackdrop();
 }
 
-export function isSheetOpen(sheet) {
-  return activeSheet === sheet && !sheet.classList.contains('hidden');
-}
-
 export function showToast(message, tone = 'info', timeoutMs = 3200) {
   const toast = document.createElement('div');
   toast.className = `toast toast-${tone}`;
@@ -281,14 +276,5 @@ export function setButtonBusy(button, busy, busyLabel) {
   if (button.dataset.label) {
     button.textContent = button.dataset.label;
     delete button.dataset.label;
-  }
-}
-
-export function setPill(pill, text, className) {
-  if (!pill) return;
-  pill.textContent = text;
-  pill.className = 'pill';
-  if (className) {
-    pill.classList.add(className);
   }
 }

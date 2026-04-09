@@ -134,7 +134,7 @@ export function listenForOwnedBoards(userId, callback, errorCallback) {
   return onSnapshot(ownedBoardsQuery, callback, errorCallback);
 }
 
-export function listenForSharedBoards(userId, userEmail, callback, errorCallback) {
+export function listenForSharedBoards(userId, callback, errorCallback) {
   const sharedBoardsQuery = query(
     collection(db, `users/${userId}/sharedBoards`),
     orderBy('sharedAt', 'desc')

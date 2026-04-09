@@ -37,7 +37,12 @@ WallyWall is a board-first climbing wall app for private home boards. Owners can
 
 ## Frontend Structure
 
-- [public/app.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/app.js): main app orchestration and Firebase-backed flows
+- [public/app.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/app.js): thin coordinator that wires state, rendering, and controller modules together
+- [public/boardAccessController.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/boardAccessController.js): auth, board restore, board loading, sharing, and account flows
+- [public/problemController.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemController.js): problem browser, selection, placement, save, update, and delete flows
+- [public/trainingLogController.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/trainingLogController.js): quick log, training log, review cache, and export flows
+- [public/boardViewport.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/boardViewport.js): board zoom, pan, pinch, swipe, and viewport sync behavior
+- [public/appHelpers.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/appHelpers.js): pure helpers for board selection state and training-log export formatting
 - [public/ui.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/ui.js): DOM map, sheets, confirm dialog, toasts
 - [public/problemEditor.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemEditor.js): board overlay marker editor
 - [public/accessHelpers.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/accessHelpers.js): access/session helpers
@@ -46,7 +51,7 @@ WallyWall is a board-first climbing wall app for private home boards. Owners can
 - [public/problemDraft.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemDraft.js): draft baselines and dirty-state handling
 - [public/trainingLog.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/trainingLog.js): month/day training-log helpers, review aggregation, and formatting
 - [public/style.css](/Users/lukemaggs/Desktop/Desktop/wallywall/public/style.css): graphite dark visual system and board-first UI styling
-- [tests/](/Users/lukemaggs/Desktop/Desktop/wallywall/tests): Vitest utility coverage for grade, browser, and training-log helpers
+- [tests/](/Users/lukemaggs/Desktop/Desktop/wallywall/tests): Vitest coverage for grade, browser, access, draft, state, and training/export helpers
 
 ## Local Development
 
@@ -75,6 +80,14 @@ Run the utility tests:
 npm test
 ```
 
+Refactor checkpoint verification:
+
+```bash
+npm test
+npm run build
+npm --prefix functions run lint
+```
+
 ## Deployment
 
 This project is configured for Firebase project `wallywall-18303`.
@@ -99,11 +112,11 @@ firebase deploy
 
 Note:
 - Functions predeploy runs `npm --prefix functions run lint`.
-- The Vite build outputs to `dist/`, but Firebase Hosting currently serves from `public/`. If you want Hosting to serve the built bundle instead of source files, switch `firebase.json` hosting `public` to `dist` as a separate change.
+- The Vite build outputs to `dist/`, but Firebase Hosting intentionally still serves `public/` directly in the current setup.
 
 ## Current Caveats
 
-- Automated coverage is now utility-level only; UI regression is still largely manual.
+- Automated coverage is focused on pure helpers and state boundaries; UI regression is still largely manual.
 - Firebase Hosting is currently configured to serve `public/` directly.
 - Training log review is board-scoped and intentionally lightweight; export is still the deeper analysis path.
 - Review stats preload quietly from the Calendar tab and reuse the same in-flight fetch when Review is opened immediately.
