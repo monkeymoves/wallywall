@@ -79,6 +79,7 @@
   - problem-browser helpers
   - training-log date/review aggregation helpers
 - Board loading now has a token-based async guard so stale board reads do not overwrite the latest selection.
+- Training review data now preloads quietly from the Calendar tab and deduplicates in-flight loads for the active board/user.
 
 ## Known Next Functional Checks
 - Confirm remembered guest access behaves correctly across reload, sign-in promotion, and explicit removal from the device.

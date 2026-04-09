@@ -135,6 +135,7 @@ let unsubscribeSharedUsers = null;
 let boardResizeObserver = null;
 let pinchState = null;
 let panState = null;
+let trainingReviewLoad = null;
 
 const MIN_BOARD_ZOOM = 1;
 const MAX_BOARD_ZOOM = 2.6;
@@ -225,6 +226,7 @@ function resetTrainingLogState() {
   state.quickLogCompleted = true;
   state.trainingLogTab = 'calendar';
   state.trainingReviewCache = createEmptyTrainingReviewCache();
+  trainingReviewLoad = null;
   if (DOM.quickLogNote) {
     DOM.quickLogNote.value = '';
   }
@@ -792,6 +794,14 @@ function setTrainingReviewCache({
     errorMessage,
     entriesByDate,
   };
+}
+
+function isActiveTrainingReviewLoad(boardId, userId) {
+  return trainingReviewLoad?.boardId === boardId && trainingReviewLoad?.userId === userId;
+}
+
+function showTrainingReviewLoadError(error) {
+  showToast(`Could not load review stats: ${error.message}`, 'error');
 }
 
 function renderTrainingStatGrid(container, stats) {
@@ -1909,9 +1919,7 @@ async function openTrainingLogSheet() {
   openSheet(DOM.trainingLogSheet);
   renderTrainingLogPanels();
   renderTrainingReview();
-  loadTrainingReview().catch((error) => {
-    showToast(`Could not load review stats: ${error.message}`, 'error');
-  });
+  loadTrainingReview().catch(() => {});
 
   try {
     await loadTrainingLogMonth();
@@ -1920,7 +1928,7 @@ async function openTrainingLogSheet() {
   }
 }
 
-async function loadTrainingReview() {
+async function loadTrainingReview({ reportErrors = false } = {}) {
   if (!canUseTrainingLog()) {
     renderTrainingReview();
     return [];
@@ -1934,6 +1942,18 @@ async function loadTrainingReview() {
 
   const boardId = state.currentBoard.id;
   const userId = state.currentUser.uid;
+
+  if (isActiveTrainingReviewLoad(boardId, userId)) {
+    try {
+      return await trainingReviewLoad.promise;
+    } catch (error) {
+      if (reportErrors) {
+        showTrainingReviewLoadError(error);
+      }
+      throw error;
+    }
+  }
+
   setTrainingReviewCache({
     boardId,
     userId,
@@ -1941,29 +1961,50 @@ async function loadTrainingReview() {
   });
   renderTrainingReview();
 
-  try {
-    const entriesByDate = await fetchTrainingHistoryForBoard(userId, boardId);
-    if (state.currentBoard?.id !== boardId || state.currentUser?.uid !== userId) {
-      return null;
-    }
+  const requestPromise = (async () => {
+    try {
+      const entriesByDate = await fetchTrainingHistoryForBoard(userId, boardId);
+      if (state.currentBoard?.id !== boardId || state.currentUser?.uid !== userId) {
+        return null;
+      }
 
-    setTrainingReviewCache({
-      boardId,
-      userId,
-      status: 'ready',
-      entriesByDate,
-    });
-    renderTrainingReview();
-    return entriesByDate;
-  } catch (error) {
-    if (state.currentBoard?.id === boardId && state.currentUser?.uid === userId) {
       setTrainingReviewCache({
         boardId,
         userId,
-        status: 'error',
-        errorMessage: error.message,
+        status: 'ready',
+        entriesByDate,
       });
       renderTrainingReview();
+      return entriesByDate;
+    } catch (error) {
+      if (state.currentBoard?.id === boardId && state.currentUser?.uid === userId) {
+        setTrainingReviewCache({
+          boardId,
+          userId,
+          status: 'error',
+          errorMessage: error.message,
+        });
+        renderTrainingReview();
+      }
+      throw error;
+    } finally {
+      if (isActiveTrainingReviewLoad(boardId, userId)) {
+        trainingReviewLoad = null;
+      }
+    }
+  })();
+
+  trainingReviewLoad = {
+    boardId,
+    userId,
+    promise: requestPromise,
+  };
+
+  try {
+    return await requestPromise;
+  } catch (error) {
+    if (reportErrors) {
+      showTrainingReviewLoadError(error);
     }
     throw error;
   }
@@ -2159,9 +2200,7 @@ function bindEvents() {
     state.trainingLogTab = 'review';
     renderTrainingLogPanels();
     renderTrainingReview();
-    loadTrainingReview().catch((error) => {
-      showToast(`Could not load review stats: ${error.message}`, 'error');
-    });
+    loadTrainingReview({ reportErrors: true }).catch(() => {});
   });
 
   DOM.createBoardForm.addEventListener('submit', handleCreateBoardSubmit);

@@ -106,3 +106,4 @@ Note:
 - Automated coverage is now utility-level only; UI regression is still largely manual.
 - Firebase Hosting is currently configured to serve `public/` directly.
 - Training log review is board-scoped and intentionally lightweight; export is still the deeper analysis path.
+- Review stats preload quietly from the Calendar tab and reuse the same in-flight fetch when Review is opened immediately.
