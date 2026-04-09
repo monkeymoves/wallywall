@@ -1,4 +1,4 @@
-# WallyWall
+# WallyWall Application
 
 WallyWall is a board-first climbing wall app for private home boards. Owners can upload a board photo, annotate problems directly on the image, share read or edit access with guest codes, and let signed-in visitors keep that access for future sessions.
 
