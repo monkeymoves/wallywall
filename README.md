@@ -88,6 +88,10 @@ npm run build
 npm --prefix functions run lint
 ```
 
+Release workflow:
+
+- [docs/release-workflow.md](/Users/lukemaggs/Desktop/Desktop/wallywall/docs/release-workflow.md): repo-specific branch, PR preview, merge, and live deploy steps
+
 ## Deployment
 
 This project is configured for Firebase project `wallywall-18303`.
