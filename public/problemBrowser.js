@@ -1,9 +1,4 @@
-export function gradeValue(grade) {
-  if (!grade) return -1;
-  const match = grade.match(/V(\d+)(\+)?/);
-  if (!match) return -1;
-  return Number.parseInt(match[1], 10) + (match[2] ? 0.5 : 0);
-}
+import { compareGradesAscending, gradeValue } from './gradeUtils.js';
 
 export function getProblemById(problems, problemId) {
   return problems.find((problem) => problem.id === problemId) || null;
@@ -16,14 +11,14 @@ export function getProblemGradeOptions(problems) {
       .filter(Boolean)
   )];
 
-  return uniqueGrades.sort((left, right) => gradeValue(left) - gradeValue(right));
+  return uniqueGrades.sort(compareGradesAscending);
 }
 
 export function getFilteredProblems(problems, selectedGradeFilter = 'all') {
   return [...problems]
     .filter((problem) => selectedGradeFilter === 'all' || problem.grade === selectedGradeFilter)
     .sort((left, right) => {
-      const gradeDiff = gradeValue(left.grade) - gradeValue(right.grade);
+      const gradeDiff = compareGradesAscending(left.grade, right.grade);
       if (gradeDiff !== 0) return gradeDiff;
       return (left.name || '').localeCompare(right.name || '');
     });

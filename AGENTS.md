@@ -19,6 +19,7 @@
   - completed / not completed result
   - optional short note
   - board-scoped calendar history
+  - secondary review tab with compact monthly and all-time summaries
   - CSV and JSON export
 
 ## Key UX Constraints
@@ -62,9 +63,9 @@
 - Problem name and grade are denormalized into training entries so history survives later problem edits.
 
 ## Known Technical Notes
-- There are still no real automated tests.
-- `npm run build` is the only meaningful local verification script right now.
-- `npm test` is still the placeholder script and should not be treated as real coverage.
+- There is now lightweight Vitest coverage for pure utility modules.
+- `npm run build` and `npm test` are both meaningful local verification steps.
+- UI and interaction regression testing is still mostly manual.
 - Firebase Hosting serves from `public/`.
 - The generated `.firebase/hosting.cHVibGlj.cache` file is local deploy noise and usually should not be committed.
 
@@ -82,4 +83,4 @@
 ## Suggested Next Checks
 - Re-test zoom/pan on mobile and desktop at higher zoom levels.
 - Keep tuning control saturation so accents feel strong but coordinated.
-- Add proper lint and test scripts when the current UX pass settles.
+- Grow test coverage outward from helpers into higher-level training-log and app-flow behavior.

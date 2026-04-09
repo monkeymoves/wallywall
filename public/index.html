@@ -423,32 +423,107 @@
           <button id="trainingNextMonthBtn" class="nav-chip month-nav-btn" type="button" aria-label="Next month">›</button>
         </div>
       </div>
-      <div class="training-log-actions">
-        <button id="exportTrainingCsvBtn" class="btn" type="button">Export CSV</button>
-        <button id="exportTrainingJsonBtn" class="btn" type="button">Export JSON</button>
+
+      <div class="training-log-segmented" role="tablist" aria-label="Training log views">
+        <button
+          id="trainingCalendarTabBtn"
+          class="training-segment is-active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="trainingCalendarPanel"
+        >
+          Calendar
+        </button>
+        <button
+          id="trainingReviewTabBtn"
+          class="training-segment"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="trainingReviewPanel"
+        >
+          Review
+        </button>
       </div>
 
-      <div class="training-calendar">
-        <div class="calendar-weekdays">
-          <span>Mon</span>
-          <span>Tue</span>
-          <span>Wed</span>
-          <span>Thu</span>
-          <span>Fri</span>
-          <span>Sat</span>
-          <span>Sun</span>
+      <section id="trainingCalendarPanel" class="training-log-panel">
+        <div class="training-calendar">
+          <div class="calendar-weekdays">
+            <span>Mon</span>
+            <span>Tue</span>
+            <span>Wed</span>
+            <span>Thu</span>
+            <span>Fri</span>
+            <span>Sat</span>
+            <span>Sun</span>
+          </div>
+          <div id="trainingCalendarGrid" class="calendar-grid"></div>
         </div>
-        <div id="trainingCalendarGrid" class="calendar-grid"></div>
-      </div>
 
-      <section class="training-day-panel">
+        <section class="training-day-panel">
+          <div class="section-heading-row">
+            <div>
+              <h3 id="trainingDayTitle">Today</h3>
+              <p id="trainingDaySummary" class="section-caption">No attempts logged yet.</p>
+            </div>
+          </div>
+          <div id="trainingEntriesList" class="training-entry-list"></div>
+        </section>
+      </section>
+
+      <section id="trainingReviewPanel" class="training-log-panel training-review-panel hidden">
         <div class="section-heading-row">
           <div>
-            <h3 id="trainingDayTitle">Today</h3>
-            <p id="trainingDaySummary" class="section-caption">No attempts logged yet.</p>
+            <h3>Review</h3>
+            <p id="trainingReviewStatus" class="section-caption">Open a saved board to see review stats.</p>
           </div>
         </div>
-        <div id="trainingEntriesList" class="training-entry-list"></div>
+
+        <div class="training-review-columns">
+          <section class="training-summary-block subtle-card">
+            <div class="section-heading-row">
+              <h3>This month</h3>
+            </div>
+            <div id="trainingMonthStats" class="training-review-grid"></div>
+          </section>
+
+          <section class="training-summary-block subtle-card">
+            <div class="section-heading-row">
+              <h3>All time</h3>
+            </div>
+            <div id="trainingAllTimeStats" class="training-review-grid"></div>
+          </section>
+        </div>
+
+        <section class="training-trend-block">
+          <div class="section-heading-row">
+            <div>
+              <h3>Monthly trend</h3>
+              <p class="section-caption">Sessions, attempts, completion rate, and grade signal over time.</p>
+            </div>
+          </div>
+          <p id="trainingTrendEmpty" class="sheet-copy hidden">No monthly history yet for this board.</p>
+          <div class="training-trend-table-wrap">
+            <table class="training-trend-table">
+              <thead>
+                <tr>
+                  <th scope="col">Month</th>
+                  <th scope="col">Sessions</th>
+                  <th scope="col">Attempts</th>
+                  <th scope="col">Rate</th>
+                  <th scope="col">Best</th>
+                  <th scope="col">Grades</th>
+                </tr>
+              </thead>
+              <tbody id="trainingTrendTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+        <div class="training-log-actions">
+          <button id="exportTrainingCsvBtn" class="btn" type="button">Export CSV</button>
+          <button id="exportTrainingJsonBtn" class="btn" type="button">Export JSON</button>
+        </div>
       </section>
     </div>
   </section>

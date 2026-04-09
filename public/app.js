@@ -56,6 +56,9 @@ import {
 } from './problemBrowser.js';
 import {
   buildCalendarDays,
+  buildMonthlyTrendRows,
+  filterEntriesByMonth,
+  formatCompletionRate,
   formatLoggedTime,
   getDateLabel,
   getMonthLabel,
@@ -64,6 +67,7 @@ import {
   getTodayDateKey,
   isDateKeyInMonth,
   shiftMonth,
+  summarizeTrainingEntries,
 } from './trainingLog.js';
 import { ProblemEditor } from './problemEditor.js';
 import {
@@ -83,6 +87,16 @@ const editor = new ProblemEditor({
   image: DOM.currentBoard,
   holdButtons: DOM.holdBtns,
 });
+
+function createEmptyTrainingReviewCache() {
+  return {
+    boardId: '',
+    userId: '',
+    status: 'idle',
+    errorMessage: '',
+    entriesByDate: [],
+  };
+}
 
 const state = {
   currentUser: null,
@@ -111,6 +125,8 @@ const state = {
   trainingMonthSessions: [],
   trainingDayEntries: [],
   quickLogCompleted: true,
+  trainingLogTab: 'calendar',
+  trainingReviewCache: createEmptyTrainingReviewCache(),
 };
 
 let unsubscribeOwnedBoards = null;
@@ -207,9 +223,13 @@ function resetTrainingLogState() {
   state.trainingMonthSessions = [];
   state.trainingDayEntries = [];
   state.quickLogCompleted = true;
+  state.trainingLogTab = 'calendar';
+  state.trainingReviewCache = createEmptyTrainingReviewCache();
   if (DOM.quickLogNote) {
     DOM.quickLogNote.value = '';
   }
+  renderTrainingLogPanels();
+  renderTrainingReview();
 }
 
 function clearCurrentBoardState() {
@@ -743,21 +763,159 @@ function downloadTextFile(filename, mimeType, content) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-async function buildTrainingExportPayload() {
-  const sessions = await getTrainingSessionsForBoard(state.currentUser.uid, state.currentBoard.id);
+function getCachedTrainingHistoryForCurrentBoard() {
+  if (!state.currentBoard || !state.currentUser) return null;
 
-  if (!sessions.length) {
-    return { sessions: [], entriesByDate: [] };
+  const { boardId, userId, status, entriesByDate } = state.trainingReviewCache;
+  if (
+    status === 'ready'
+    && boardId === state.currentBoard.id
+    && userId === state.currentUser.uid
+  ) {
+    return entriesByDate;
   }
 
-  const entriesByDate = await Promise.all(
+  return null;
+}
+
+function setTrainingReviewCache({
+  boardId,
+  userId,
+  status,
+  errorMessage = '',
+  entriesByDate = [],
+}) {
+  state.trainingReviewCache = {
+    boardId,
+    userId,
+    status,
+    errorMessage,
+    entriesByDate,
+  };
+}
+
+function renderTrainingStatGrid(container, stats) {
+  if (!container) return;
+
+  const cards = [
+    ['Sessions', stats.sessionCount],
+    ['Attempts', stats.attemptCount],
+    ['Completion', formatCompletionRate(stats.completedCount, stats.attemptCount)],
+    ['Best send', stats.bestCompletedGrade || 'No sends'],
+  ];
+
+  container.innerHTML = '';
+  cards.forEach(([label, value]) => {
+    const card = document.createElement('article');
+    const labelElement = document.createElement('span');
+    const valueElement = document.createElement('strong');
+
+    card.className = 'training-stat-card';
+    labelElement.className = 'training-stat-label';
+    valueElement.className = 'training-stat-value';
+
+    labelElement.textContent = label;
+    valueElement.textContent = String(value);
+
+    card.append(labelElement, valueElement);
+    container.append(card);
+  });
+}
+
+function renderTrainingTrendRows(rows = []) {
+  DOM.trainingTrendTableBody.innerHTML = '';
+  DOM.trainingTrendEmpty.classList.toggle('hidden', rows.length > 0);
+
+  rows.forEach((row) => {
+    const tableRow = document.createElement('tr');
+    const values = [
+      row.monthLabel,
+      row.sessionCount,
+      row.attemptCount,
+      formatCompletionRate(row.completedCount, row.attemptCount),
+      row.bestCompletedGrade || 'No sends',
+      row.attemptedGradesSummary,
+    ];
+
+    values.forEach((value) => {
+      const cell = document.createElement('td');
+      cell.textContent = String(value);
+      tableRow.append(cell);
+    });
+
+    DOM.trainingTrendTableBody.append(tableRow);
+  });
+}
+
+function renderTrainingLogPanels() {
+  const showCalendar = state.trainingLogTab !== 'review';
+
+  DOM.trainingCalendarPanel.classList.toggle('hidden', !showCalendar);
+  DOM.trainingReviewPanel.classList.toggle('hidden', showCalendar);
+  DOM.trainingCalendarTabBtn.classList.toggle('is-active', showCalendar);
+  DOM.trainingReviewTabBtn.classList.toggle('is-active', !showCalendar);
+  DOM.trainingCalendarTabBtn.setAttribute('aria-selected', showCalendar ? 'true' : 'false');
+  DOM.trainingReviewTabBtn.setAttribute('aria-selected', showCalendar ? 'false' : 'true');
+}
+
+function renderTrainingReview() {
+  if (!DOM.trainingReviewStatus) return;
+
+  if (!canUseTrainingLog()) {
+    DOM.trainingReviewStatus.textContent = 'Open a saved board while signed in to see review stats.';
+    renderTrainingStatGrid(DOM.trainingMonthStats, summarizeTrainingEntries([]));
+    renderTrainingStatGrid(DOM.trainingAllTimeStats, summarizeTrainingEntries([]));
+    renderTrainingTrendRows([]);
+    DOM.trainingTrendEmpty.textContent = 'No monthly history yet for this board.';
+    return;
+  }
+
+  const cachedEntriesByDate = getCachedTrainingHistoryForCurrentBoard();
+  const { status, errorMessage } = state.trainingReviewCache;
+
+  if (!cachedEntriesByDate) {
+    if (status === 'loading') {
+      DOM.trainingReviewStatus.textContent = 'Loading review stats…';
+    } else if (status === 'error') {
+      DOM.trainingReviewStatus.textContent = `Could not load review stats: ${errorMessage}`;
+    } else {
+      DOM.trainingReviewStatus.textContent = 'Open a saved board to see review stats.';
+    }
+    renderTrainingStatGrid(DOM.trainingMonthStats, summarizeTrainingEntries([]));
+    renderTrainingStatGrid(DOM.trainingAllTimeStats, summarizeTrainingEntries([]));
+    renderTrainingTrendRows([]);
+    DOM.trainingTrendEmpty.textContent = 'No monthly history yet for this board.';
+    return;
+  }
+
+  const monthEntries = filterEntriesByMonth(cachedEntriesByDate, state.trainingMonthCursor);
+  const monthSummary = summarizeTrainingEntries(monthEntries);
+  const allTimeSummary = summarizeTrainingEntries(cachedEntriesByDate);
+  const trendRows = buildMonthlyTrendRows(cachedEntriesByDate);
+  const monthLabel = getMonthLabel(state.trainingMonthCursor);
+
+  DOM.trainingReviewStatus.textContent = monthEntries.length
+    ? `${monthLabel} summary with all-time board history.`
+    : `No attempts logged in ${monthLabel} yet. All-time board history is still shown.`;
+  DOM.trainingTrendEmpty.textContent = 'No monthly history yet for this board.';
+
+  renderTrainingStatGrid(DOM.trainingMonthStats, monthSummary);
+  renderTrainingStatGrid(DOM.trainingAllTimeStats, allTimeSummary);
+  renderTrainingTrendRows(trendRows);
+}
+
+async function fetchTrainingHistoryForBoard(userId, boardId) {
+  const sessions = await getTrainingSessionsForBoard(userId, boardId);
+  if (!sessions.length) {
+    return [];
+  }
+
+  return Promise.all(
     sessions.map(async (session) => ({
       ...session,
-      entries: await getTrainingEntriesForDate(state.currentUser.uid, state.currentBoard.id, session.dateKey),
+      entries: await getTrainingEntriesForDate(userId, boardId, session.dateKey),
     }))
   );
-
-  return { sessions, entriesByDate };
 }
 
 async function exportTrainingLog(format) {
@@ -770,21 +928,36 @@ async function exportTrainingLog(format) {
   setButtonBusy(targetButton, true, 'Exporting…');
 
   try {
-    const { entriesByDate } = await buildTrainingExportPayload();
+    const boardId = state.currentBoard.id;
+    const boardName = state.currentBoard.name || 'Untitled board';
+    const userId = state.currentUser.uid;
+    const entriesByDate = getCachedTrainingHistoryForCurrentBoard()
+      || await fetchTrainingHistoryForBoard(userId, boardId);
+
+    if (state.currentBoard?.id === boardId && state.currentUser?.uid === userId) {
+      setTrainingReviewCache({
+        boardId,
+        userId,
+        status: 'ready',
+        entriesByDate,
+      });
+      renderTrainingReview();
+    }
+
     if (!entriesByDate.length) {
       showToast('No training data yet for this board.', 'warning');
       return;
     }
 
-    const safeBoardName = slugify(state.currentBoard.name || 'board') || 'board';
+    const safeBoardName = slugify(boardName || 'board') || 'board';
     const stamp = getTodayDateKey();
 
     if (format === 'json') {
       const payload = {
         exportedAt: new Date().toISOString(),
         board: {
-          id: state.currentBoard.id,
-          name: state.currentBoard.name || 'Untitled board',
+          id: boardId,
+          name: boardName,
         },
         sessions: entriesByDate.map((session) => ({
           dateKey: session.dateKey,
@@ -821,8 +994,8 @@ async function exportTrainingLog(format) {
       ];
 
       const rows = entriesByDate.flatMap((session) => session.entries.map((entry) => ([
-        state.currentBoard.id,
-        state.currentBoard.name || 'Untitled board',
+        boardId,
+        boardName,
         session.dateKey,
         entry.problemId || '',
         entry.problemName || '',
@@ -844,7 +1017,7 @@ async function exportTrainingLog(format) {
       );
     }
 
-    showToast(`Exported ${format.toUpperCase()} for ${state.currentBoard.name}.`, 'success');
+    showToast(`Exported ${format.toUpperCase()} for ${boardName}.`, 'success');
   } catch (error) {
     showToast(`Could not export training data: ${error.message}`, 'error');
   } finally {
@@ -928,6 +1101,7 @@ async function loadTrainingLogMonth() {
     DOM.trainingLogBoardContext.textContent = 'Open a saved board while signed in to use the training log.';
     DOM.trainingCalendarGrid.innerHTML = '<p class="sheet-copy">Training logs are available on your own boards and saved shared boards.</p>';
     state.trainingDayEntries = [];
+    renderTrainingReview();
     renderTrainingDayEntries();
     return;
   }
@@ -943,6 +1117,7 @@ async function loadTrainingLogMonth() {
     state.trainingSelectedDateKey = getDefaultTrainingDateKey(state.trainingMonthCursor, sessions);
   }
 
+  renderTrainingReview();
   renderTrainingCalendar();
   await loadTrainingEntries(state.trainingSelectedDateKey);
 }
@@ -994,6 +1169,7 @@ function renderShell() {
 
   updateBoardZoomUi();
   renderQuickLogSheet();
+  renderTrainingLogPanels();
   configureProblemSheetForCurrentMode();
 
   renderAccessSheet();
@@ -1021,26 +1197,37 @@ function stopSharedUsersListener() {
 }
 
 async function refreshCurrentBoardAccess() {
-  if (!state.currentBoard || isOwner()) {
-    state.sharedAccessLevel = null;
-    return;
-  }
-
-  if (state.currentUser) {
-    state.sharedAccessLevel = await getUserPermissionForBoard(state.currentBoard.id, state.currentUser.uid);
-    return;
-  }
-
-  state.sharedAccessLevel = null;
+  state.sharedAccessLevel = await fetchBoardAccessLevel(state.currentBoard);
 }
 
-async function loadProblems(boardId, { preserveSelected = false } = {}) {
-  const selectedId = preserveSelected ? state.selectedProblemId : '';
-  state.currentProblems = await getProblemsByBoardId(boardId);
-  state.selectedProblemId = selectedId && state.currentProblems.some((problem) => problem.id === selectedId)
-    ? selectedId
-    : '';
+async function fetchBoardAccessLevel(board) {
+  if (!board || !state.currentUser || state.currentUser.uid === board.ownerUid) {
+    return null;
+  }
+
+  return getUserPermissionForBoard(board.id, state.currentUser.uid);
+}
+
+async function loadProblems(boardId, { preserveSelected = false, selectedProblemId = '' } = {}) {
+  const nextProblems = await getProblemsByBoardId(boardId);
+  const preservedId = preserveSelected ? selectedProblemId : '';
+
+  return {
+    problems: nextProblems,
+    selectedProblemId: preservedId && nextProblems.some((problem) => problem.id === preservedId)
+      ? preservedId
+      : '',
+  };
+}
+
+function applyLoadedProblems({ problems, selectedProblemId }) {
+  state.currentProblems = problems;
+  state.selectedProblemId = selectedProblemId;
   renderProblemBrowser();
+}
+
+function isActiveBoardLoad(boardId, boardLoadToken) {
+  return state.boardLoadToken === boardLoadToken && state.currentBoard?.id === boardId;
 }
 
 async function loadBoardById(boardId, options = {}) {
@@ -1058,14 +1245,16 @@ async function loadBoardById(boardId, options = {}) {
 }
 
 async function loadBoard(boardId, boardData, options = {}) {
+  const preservedProblemId = options.preserveSelected ? state.selectedProblemId : '';
   state.currentBoard = { ...boardData, id: boardId };
-  state.selectedProblemId = options.preserveSelected ? state.selectedProblemId : '';
+  state.selectedProblemId = preservedProblemId;
   state.latestGeneratedCode = null;
   state.selectedGradeFilter = 'all';
   state.boardVisualReady = false;
   resetTrainingLogState();
   setSelectedBoardId(boardId);
   resetBoardZoom();
+  stopSharedUsersListener();
 
   const boardLoadToken = ++state.boardLoadToken;
   showBoardStatus('Loading board…', 'info');
@@ -1085,16 +1274,25 @@ async function loadBoard(boardId, boardData, options = {}) {
   };
   DOM.currentBoard.src = boardData.imageUrl;
 
-  await refreshCurrentBoardAccess();
-  await loadProblems(boardId, { preserveSelected: options.preserveSelected });
+  const sharedAccessLevel = await fetchBoardAccessLevel(state.currentBoard);
+  if (!isActiveBoardLoad(boardId, boardLoadToken)) return;
+  state.sharedAccessLevel = sharedAccessLevel;
+
+  const loadedProblems = await loadProblems(boardId, {
+    preserveSelected: options.preserveSelected,
+    selectedProblemId: preservedProblemId,
+  });
+  if (!isActiveBoardLoad(boardId, boardLoadToken)) return;
+  applyLoadedProblems(loadedProblems);
   renderProblemDetails();
   renderShell();
 
+  if (!isActiveBoardLoad(boardId, boardLoadToken)) return;
   if (isOwner()) {
-    stopSharedUsersListener();
     unsubscribeSharedUsers = listenForSharedUsers(
       boardId,
       (snapshot) => {
+        if (!isActiveBoardLoad(boardId, boardLoadToken)) return;
         const users = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
@@ -1102,13 +1300,13 @@ async function loadBoard(boardId, boardData, options = {}) {
         renderSharedUsers(users);
       },
       (error) => {
+        if (!isActiveBoardLoad(boardId, boardLoadToken)) return;
         showToast(`Could not load shared users: ${error.message}`, 'error');
       }
     );
-  } else {
-    stopSharedUsersListener();
   }
 
+  if (!isActiveBoardLoad(boardId, boardLoadToken)) return;
   showBoardStatus('', 'info');
 }
 
@@ -1602,8 +1800,10 @@ async function handleSaveProblem() {
 
     state.selectedProblemId = selectedProblemId;
     exitPlacement({ restorePreviousSelection: false });
-    await loadProblems(state.currentBoard.id, { preserveSelected: true });
-    renderProblemBrowser();
+    applyLoadedProblems(await loadProblems(state.currentBoard.id, {
+      preserveSelected: true,
+      selectedProblemId,
+    }));
     renderProblemDetails();
     renderShell();
     showToast(state.problemSheetMode === 'edit' ? 'Problem updated.' : 'Problem saved.', 'success');
@@ -1642,7 +1842,7 @@ async function handleDeleteProblem() {
     await deleteProblem(state.currentBoard.id, selectedProblem.id);
     state.selectedProblemId = '';
     exitPlacement({ restorePreviousSelection: false });
-    await loadProblems(state.currentBoard.id, { preserveSelected: false });
+    applyLoadedProblems(await loadProblems(state.currentBoard.id, { preserveSelected: false }));
     renderShell();
     showToast('Problem deleted.', 'success');
   } catch (error) {
@@ -1689,6 +1889,7 @@ async function handleSaveQuickLog() {
     );
 
     state.trainingSelectedDateKey = todayKey;
+    state.trainingReviewCache = createEmptyTrainingReviewCache();
     closeSheet(DOM.quickLogSheet);
     showToast(state.quickLogCompleted ? 'Logged as completed.' : 'Logged as not completed.', 'success');
   } catch (error) {
@@ -1704,11 +1905,67 @@ async function openTrainingLogSheet() {
     return;
   }
 
+  state.trainingLogTab = 'calendar';
   openSheet(DOM.trainingLogSheet);
+  renderTrainingLogPanels();
+  renderTrainingReview();
+  loadTrainingReview().catch((error) => {
+    showToast(`Could not load review stats: ${error.message}`, 'error');
+  });
+
   try {
     await loadTrainingLogMonth();
   } catch (error) {
     showToast(`Could not load the training log: ${error.message}`, 'error');
+  }
+}
+
+async function loadTrainingReview() {
+  if (!canUseTrainingLog()) {
+    renderTrainingReview();
+    return [];
+  }
+
+  const cachedEntriesByDate = getCachedTrainingHistoryForCurrentBoard();
+  if (cachedEntriesByDate) {
+    renderTrainingReview();
+    return cachedEntriesByDate;
+  }
+
+  const boardId = state.currentBoard.id;
+  const userId = state.currentUser.uid;
+  setTrainingReviewCache({
+    boardId,
+    userId,
+    status: 'loading',
+  });
+  renderTrainingReview();
+
+  try {
+    const entriesByDate = await fetchTrainingHistoryForBoard(userId, boardId);
+    if (state.currentBoard?.id !== boardId || state.currentUser?.uid !== userId) {
+      return null;
+    }
+
+    setTrainingReviewCache({
+      boardId,
+      userId,
+      status: 'ready',
+      entriesByDate,
+    });
+    renderTrainingReview();
+    return entriesByDate;
+  } catch (error) {
+    if (state.currentBoard?.id === boardId && state.currentUser?.uid === userId) {
+      setTrainingReviewCache({
+        boardId,
+        userId,
+        status: 'error',
+        errorMessage: error.message,
+      });
+      renderTrainingReview();
+    }
+    throw error;
   }
 }
 
@@ -1894,6 +2151,18 @@ function bindEvents() {
   DOM.createAccountBtn.addEventListener('click', handleCreateAccount);
   DOM.signOutBtn.addEventListener('click', handleSignOut);
   DOM.openTrainingLogMenuBtn.addEventListener('click', openTrainingLogSheet);
+  DOM.trainingCalendarTabBtn.addEventListener('click', () => {
+    state.trainingLogTab = 'calendar';
+    renderTrainingLogPanels();
+  });
+  DOM.trainingReviewTabBtn.addEventListener('click', () => {
+    state.trainingLogTab = 'review';
+    renderTrainingLogPanels();
+    renderTrainingReview();
+    loadTrainingReview().catch((error) => {
+      showToast(`Could not load review stats: ${error.message}`, 'error');
+    });
+  });
 
   DOM.createBoardForm.addEventListener('submit', handleCreateBoardSubmit);
   DOM.joinCodeForm.addEventListener('submit', handleJoinCodeSubmit);

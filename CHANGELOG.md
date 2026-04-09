@@ -1,5 +1,13 @@
 # WallyWall Change Log
 
+## 2026-04-09
+
+### Training Review And Stability
+- Added token-safe board loading so stale async results no longer overwrite the most recently selected board.
+- Added a secondary `Review` tab inside the training log for compact monthly and all-time board summaries.
+- Kept the calendar as the default training-log view and fixed the sheet height so it stays visually stable between empty and populated months.
+- Added a small Vitest utility suite covering grade helpers, problem-browser helpers, and training-log date/review aggregation helpers.
+
 ## 2026-04-08
 
 ### Training Log v1

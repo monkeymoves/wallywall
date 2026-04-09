@@ -8,6 +8,7 @@ WallyWall is a board-first climbing wall app for private home boards. Owners can
 - Problem browsing with grade filter, bottom context rail, and swipe/arrow navigation
 - Placement-first problem creation and editing
 - Private training log for signed-in users on saved boards
+- Secondary `Review` tab inside the training log for compact board summaries
 - CSV and JSON export for board-scoped training history
 - Owner, signed-in member, and guest-by-code access model
 - Remembered guest access on-device, with explicit removal from the menu
@@ -41,9 +42,11 @@ WallyWall is a board-first climbing wall app for private home boards. Owners can
 - [public/problemEditor.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemEditor.js): board overlay marker editor
 - [public/accessHelpers.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/accessHelpers.js): access/session helpers
 - [public/problemBrowser.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemBrowser.js): grade sorting and selected-problem navigation
+- [public/gradeUtils.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/gradeUtils.js): shared grade ranking helpers for browsing and training review
 - [public/problemDraft.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/problemDraft.js): draft baselines and dirty-state handling
-- [public/trainingLog.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/trainingLog.js): month/day training-log date helpers and formatting
+- [public/trainingLog.js](/Users/lukemaggs/Desktop/Desktop/wallywall/public/trainingLog.js): month/day training-log helpers, review aggregation, and formatting
 - [public/style.css](/Users/lukemaggs/Desktop/Desktop/wallywall/public/style.css): graphite dark visual system and board-first UI styling
+- [tests/](/Users/lukemaggs/Desktop/Desktop/wallywall/tests): Vitest utility coverage for grade, browser, and training-log helpers
 
 ## Local Development
 
@@ -64,6 +67,12 @@ Build the production bundle:
 
 ```bash
 npm run build
+```
+
+Run the utility tests:
+
+```bash
+npm test
 ```
 
 ## Deployment
@@ -94,6 +103,6 @@ Note:
 
 ## Current Caveats
 
-- There are still no automated tests; regression is manual.
+- Automated coverage is now utility-level only; UI regression is still largely manual.
 - Firebase Hosting is currently configured to serve `public/` directly.
-- Training log v1 is board-scoped and private; CSV/JSON export is available and charts are still deferred.
+- Training log review is board-scoped and intentionally lightweight; export is still the deeper analysis path.

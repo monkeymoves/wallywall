@@ -69,7 +69,16 @@
 - Training log v1 now follows that rule:
   - top-bar `Log` opens a tiny attempt card for the selected problem
   - full history lives in a secondary calendar sheet from the menu
+  - summary/review lives in a secondary tab inside that sheet rather than above the calendar
   - logs are private per user and scoped to the current board
+
+## Current Engineering Notes
+- Root `npm test` now runs a small Vitest suite for pure utility modules.
+- Current automated coverage is intentionally limited to:
+  - grade helpers
+  - problem-browser helpers
+  - training-log date/review aggregation helpers
+- Board loading now has a token-based async guard so stale board reads do not overwrite the latest selection.
 
 ## Known Next Functional Checks
 - Confirm remembered guest access behaves correctly across reload, sign-in promotion, and explicit removal from the device.
