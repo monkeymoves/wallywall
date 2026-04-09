@@ -262,7 +262,6 @@ export function createBoardAccessController({
     const boardLoadToken = ++state.boardLoadToken;
     uiApi.showBoardStatus('Loading board…', 'info');
 
-    DOM.currentBoard.crossOrigin = 'anonymous';
     DOM.currentBoard.onload = () => {
       if (boardLoadToken !== state.boardLoadToken) return;
       state.boardVisualReady = true;
